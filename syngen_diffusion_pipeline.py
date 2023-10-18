@@ -224,7 +224,7 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         text_encoder_lora_scale = (
             cross_attention_kwargs.get("scale", None) if cross_attention_kwargs is not None else None
         )
-        prompt_embeds, negative_prompt_embeds = self.encode_prompt(
+        negative_prompt_embeds,  prompt_embeds = self._encode_prompt(
             prompt,
             device,
             num_images_per_prompt,
@@ -238,7 +238,8 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         # Here we concatenate the unconditional and text embeddings into a single batch
         # to avoid doing two forward passes
         if do_classifier_free_guidance:
-            prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds])
+            prompt_embeds = torch.stack([negative_prompt_embeds, prompt_embeds], dim=0)
+            #print(f"Prompt embeds shape: {prompt_embeds.shape}")
 
         # 4. Prepare timesteps
         self.scheduler.set_timesteps(num_inference_steps, device=device)
@@ -267,9 +268,10 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         self.register_attention_control()
 
         # NEW
-        text_embeddings = (
-            prompt_embeds[batch_size * num_images_per_prompt:] if do_classifier_free_guidance else prompt_embeds
-        )
+        # text_embeddings = (
+        #     prompt_embeds[batch_size * num_images_per_prompt:] if do_classifier_free_guidance else prompt_embeds
+        # )
+        text_embeddings = [prompt_embeds[1][None,...]]
 
         # 7. Denoising loop
         num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
@@ -329,7 +331,8 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
 
         if not output_type == "latent":
             image = self.vae.decode(latents / self.vae.config.scaling_factor, return_dict=False)[0]
-            image, has_nsfw_concept = self.run_safety_checker(image, device, prompt_embeds.dtype)
+            # image, has_nsfw_concept = self.run_safety_checker(image, device, prompt_embeds.dtype)
+            has_nsfw_concept = None
         else:
             image = latents
             has_nsfw_concept = None
@@ -342,7 +345,7 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         image = self.image_processor.postprocess(image, output_type=output_type, do_denormalize=do_denormalize)
 
         # Offload all models
-        self.maybe_free_model_hooks()
+        #self._maybe_free_model_hooks()
 
 
         if not return_dict:
@@ -365,31 +368,38 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
             max_iter_to_alter=25,
     ):
         with torch.enable_grad():
-            latents = latents.clone().detach().requires_grad_(True)
+            # latents = latents.clone().detach().requires_grad_(True)
+            max_iter_to_alter = 1
+            
             updated_latents = []
             for latent, text_embedding in zip(latents, text_embeddings):
                 # Forward pass of denoising with text conditioning
-                latent = latent.unsqueeze(0)
-                text_embedding = text_embedding.unsqueeze(0)
+                # latent = latent.unsqueeze(0)
+                # text_embedding = text_embedding.unsqueeze(0)
+                latent = latent[None,...]
+                
 
-                self.unet(
+                for k in range(max_iter_to_alter):
+                    latent = latent.clone().detach().requires_grad_(True)
+                    self.unet(
                     latent,
                     t,
                     encoder_hidden_states=text_embedding,
                     cross_attention_kwargs=cross_attention_kwargs,
                     return_dict=False,
-                )[0]
-                self.unet.zero_grad()
-                # Get attention maps
-                attention_maps = self._aggregate_and_get_attention_maps_per_token()
-                loss = self._compute_loss(attention_maps=attention_maps, prompt=prompt)
-                # Perform gradient update
-                if i < max_iter_to_alter:
+                    )
+
+                    self.unet.zero_grad()
+                    # Get attention maps
+                    attention_maps = self._aggregate_and_get_attention_maps_per_token()
+                    loss = self._compute_loss(attention_maps=attention_maps, prompt=prompt)
+                    # Perform gradient update
+                    # if k < max_iter_to_alter:
                     if loss != 0:
                         latent = self._update_latent(
                             latents=latent, loss=loss, step_size=step_size
                         )
-                    logger.info(f"Iteration {i} | Loss: {loss:0.4f}")
+                    #print(f"Iteration {i, k} | Loss: {loss:0.4f}")
 
             updated_latents.append(latent)
 
@@ -412,8 +422,8 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
             prompt: Union[str, List[str]],
             attn_map_idx_to_wp,
     ) -> torch.Tensor:
-        if not self.subtrees_indices:
-          self.subtrees_indices = self._extract_attribution_indices(prompt)
+        
+        self.subtrees_indices = self._extract_attribution_indices(prompt)
         subtrees_indices = self.subtrees_indices
         loss = 0
 
@@ -510,7 +520,7 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         pairs = unify_lists(pairs, pairs_2, pairs_3)
 
 
-        print(f"Final pairs collected: {pairs}")
+        #print(f"Final pairs collected: {pairs}")
         paired_indices = self._align_indices(prompt, pairs)
         return paired_indices
 

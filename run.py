@@ -5,15 +5,22 @@ import math
 import torch
 from syngen_diffusion_pipeline import SynGenDiffusionPipeline
 
+from eval_data import data
+from data_CC import CC
+from tqdm import tqdm
 
-def main(prompt, seed, output_directory, model_path, step_size, attn_res):
-    pipe = load_model(model_path)
-    image = generate(pipe, prompt, seed, step_size, attn_res)
-    save_image(image, prompt, seed, output_directory)
+def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu):
+    pipe = load_model(model_path, gpu)
+    for prompt in tqdm(prompts):
+        for seed in seeds:
+            print(f'Running on: "{prompt}"')
+            seed = seed.item()
+            image = generate(pipe, prompt, seed, step_size, attn_res)
+            save_image(image, prompt, seed, output_directory+'/9/'+prompt)
 
 
-def load_model(model_path):
-    device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+def load_model(model_path, device=0):
+    device = torch.device(f'cuda:{device}') if torch.cuda.is_available() else torch.device('cpu')
     pipe = SynGenDiffusionPipeline.from_pretrained(model_path).to(device)
 
     return pipe
@@ -30,7 +37,7 @@ def save_image(image, prompt, seed, output_directory):
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    file_name = f"{output_directory}/{prompt}_{seed}.png"
+    file_name = f"{output_directory}/{seed}.png"
     image.save(file_name)
 
 
@@ -46,13 +53,13 @@ if __name__ == "__main__":
     parser.add_argument(
         '--seed',
         type=int,
-        default=1924
+        default=12345
     )
 
     parser.add_argument(
         '--output_directory',
         type=str,
-        default='./output'
+        default='./projects/Syntax-Guided-Generation/output'
     )
 
     parser.add_argument(
@@ -79,4 +86,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(args.prompt, args.seed, args.output_directory, args.model_path, args.step_size, args.attn_res)
+    torch.manual_seed(12345)
+    seeds = torch.randint(0, 100000, (4,))
+    reverse = False
+    gpu = 1
+
+    main(CC[::-1 if reverse else 1], seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu)
