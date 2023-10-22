@@ -8,15 +8,25 @@ from syngen_diffusion_pipeline import SynGenDiffusionPipeline
 from eval_data import data
 from data_CC import CC
 from tqdm import tqdm
+import utils.vis_utils as vis_utils
 
-def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu):
+def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu, number, print_volumn, excite, lambda_excite):
     pipe = load_model(model_path, gpu)
+    pipe.print_volumn = print_volumn
+    pipe.excite = excite
+    pipe.lambda_excite = lambda_excite
     for prompt in tqdm(prompts):
+        images = []
         for seed in seeds:
             print(f'Running on: "{prompt}"')
             seed = seed.item()
             image = generate(pipe, prompt, seed, step_size, attn_res)
-            save_image(image, prompt, seed, output_directory+'/9/'+prompt)
+            save_image(image, prompt, seed, output_directory+f'/{number}/'+prompt)
+            images.append(image)
+
+        joined_image = vis_utils.get_image_grid(images)
+        joined_image.save(output_directory+f'/{number}/'+f'{prompt}.png')
+
 
 
 def load_model(model_path, device=0):
@@ -90,5 +100,23 @@ if __name__ == "__main__":
     seeds = torch.randint(0, 100000, (4,))
     reverse = False
     gpu = 1
+    number = 12
+    print_volumn = False
+    excite = True
+    lambda_excite = 0.1
 
-    main(CC[::-1 if reverse else 1], seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu)
+    sentences = [
+    "a pink sunflower and a yellow flamingo",
+    "a checkered bowl in a cluttered room",
+    "a horned lion and a spotted monkey",
+    "a brown brush glides through beautiful blue hair",
+    "a blue and white dog sleeps in front of a black door",
+    "a white fire hydrant sitting in a field next to a red building",
+    "a wooden crown and a furry baby rabbit",
+    "a red chair and a purple camera and a baby lion",
+    "a spiky bowl and a green cat"
+    ]
+
+    
+
+    main(sentences[::-1 if reverse else 1], seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite)

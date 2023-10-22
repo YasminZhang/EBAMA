@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, Optional, Union, List, Tuple
 
 import spacy
 import torch
+from torch.nn import functional as F
 from diffusers import StableDiffusionPipeline, AutoencoderKL, UNet2DConditionModel
 from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput, StableDiffusionSafetyChecker
 from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import (
@@ -11,9 +12,11 @@ from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import (
 )
 from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion_attend_and_excite import (
     AttentionStore,
-    AttendExciteAttnProcessor
+    AttendExciteAttnProcessor,
+
 )
 import numpy as np
+import math
 from diffusers.schedulers import KarrasDiffusionSchedulers
 from diffusers.utils import (
     logging,
@@ -393,8 +396,7 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
                     # Get attention maps
                     attention_maps = self._aggregate_and_get_attention_maps_per_token()
                     loss = self._compute_loss(attention_maps=attention_maps, prompt=prompt)
-                    # Perform gradient update
-                    # if k < max_iter_to_alter:
+            
                     if loss != 0:
                         latent = self._update_latent(
                             latents=latent, loss=loss, step_size=step_size
@@ -406,12 +408,60 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         latents = torch.cat(updated_latents, dim=0)
 
         return latents
+    
+
+    def _compute_max_attention_per_index(
+        self,
+        attention_maps: torch.Tensor,
+    ) -> List[torch.Tensor]:
+        """Computes the maximum attention value for each of the tokens we wish to alter."""
+        attention_for_text = torch.stack(attention_maps, dim=-1)[:,:,1:-1]
+        # attention_for_text *= 100
+        attention_for_text = torch.nn.functional.softmax(attention_for_text, dim=-1)
+
+        # shift indices by 1 to account for the start token
+        indices = [index[-1]-1 if isinstance(index[-1], int) else index[-1][0]-1  for index in self.subtrees_indices] 
+      
+        # Extract the maximum values
+        max_indices_list = []
+        for i in indices:
+            image = attention_for_text[:, :, i]
+            smoothing = GaussianSmoothing().to(attention_for_text.device)
+            input = F.pad(image.unsqueeze(0).unsqueeze(0), (1, 1, 1, 1), mode="reflect")
+            image = smoothing(input).squeeze(0).squeeze(0)
+            max_indices_list.append(image.max())
+        return max_indices_list
+    
+    @staticmethod
+    def _compute_excite_loss(max_attention_per_index: List[torch.Tensor]) -> torch.Tensor:
+        """Computes the attend-and-excite loss using the maximum attention value for each token."""
+        losses = [max(0, 1.0 - curr_max) for curr_max in max_attention_per_index]
+        loss = max(losses)
+        return loss
+    
+    def _excitation_loss(self, attention_maps, prompt, attn_map_idx_to_wp):
+ 
+        max_attention_per_index = self._compute_max_attention_per_index(
+            attention_maps=attention_maps,
+        )
+
+        excite_loss = self._compute_excite_loss(max_attention_per_index)
+
+        return excite_loss
 
     def _compute_loss(
             self, attention_maps: List[torch.Tensor], prompt: Union[str, List[str]]
     ) -> torch.Tensor:
         attn_map_idx_to_wp = get_attention_map_index_to_wordpiece(self.tokenizer, prompt)
+        if self.print_volumn:
+            attention_maps_softmax = torch.nn.functional.softmax(torch.stack(attention_maps[1:]), dim=0)
+            
+            print(f"token {attn_map_idx_to_wp[3]}: {attention_maps_softmax[3-1].sum()/256:0.4f}, {attention_maps_softmax[3-1].max():0.4f} \
+                   token {attn_map_idx_to_wp[7]}: {attention_maps_softmax[7-1].sum()/256:0.4f}, {attention_maps_softmax[7-1].max():0.4f}")
         loss = self._attribution_loss(attention_maps, prompt, attn_map_idx_to_wp)
+
+        if self.excite:
+            loss += self._excitation_loss(attention_maps, prompt, attn_map_idx_to_wp)
 
         return loss
 
@@ -560,3 +610,68 @@ def unify_lists(lists_1, lists_2, lists_3):
             seen.add(tuple(sorted_list[i]))
 
     return result
+
+
+class GaussianSmoothing(torch.nn.Module):
+    """
+    Arguments:
+    Apply gaussian smoothing on a 1d, 2d or 3d tensor. Filtering is performed seperately for each channel in the input
+    using a depthwise convolution.
+        channels (int, sequence): Number of channels of the input tensors. Output will
+            have this number of channels as well.
+        kernel_size (int, sequence): Size of the gaussian kernel. sigma (float, sequence): Standard deviation of the
+        gaussian kernel. dim (int, optional): The number of dimensions of the data.
+            Default value is 2 (spatial).
+    """
+
+    # channels=1, kernel_size=kernel_size, sigma=sigma, dim=2
+    def __init__(
+        self,
+        channels: int = 1,
+        kernel_size: int = 3,
+        sigma: float = 0.5,
+        dim: int = 2,
+    ):
+        super().__init__()
+
+        if isinstance(kernel_size, int):
+            kernel_size = [kernel_size] * dim
+        if isinstance(sigma, float):
+            sigma = [sigma] * dim
+
+        # The gaussian kernel is the product of the
+        # gaussian function of each dimension.
+        kernel = 1
+        meshgrids = torch.meshgrid([torch.arange(size, dtype=torch.float32) for size in kernel_size])
+        for size, std, mgrid in zip(kernel_size, sigma, meshgrids):
+            mean = (size - 1) / 2
+            kernel *= 1 / (std * math.sqrt(2 * math.pi)) * torch.exp(-(((mgrid - mean) / (2 * std)) ** 2))
+
+        # Make sure sum of values in gaussian kernel equals 1.
+        kernel = kernel / torch.sum(kernel)
+
+        # Reshape to depthwise convolutional weight
+        kernel = kernel.view(1, 1, *kernel.size())
+        kernel = kernel.repeat(channels, *[1] * (kernel.dim() - 1))
+
+        self.register_buffer("weight", kernel)
+        self.groups = channels
+
+        if dim == 1:
+            self.conv = F.conv1d
+        elif dim == 2:
+            self.conv = F.conv2d
+        elif dim == 3:
+            self.conv = F.conv3d
+        else:
+            raise RuntimeError("Only 1, 2 and 3 dimensions are supported. Received {}.".format(dim))
+
+    def forward(self, input):
+        """
+        Arguments:
+        Apply gaussian filter to input.
+            input (torch.Tensor): Input to apply gaussian filter on.
+        Returns:
+            filtered (torch.Tensor): Filtered output.
+        """
+        return self.conv(input, weight=self.weight.to(input.dtype).to(input.device), groups=self.groups)
