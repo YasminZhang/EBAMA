@@ -1,6 +1,7 @@
 import torch.distributions as dist
 from typing import List, Dict
 import itertools
+import torch
 
 start_token = "<|startoftext|>"
 end_token = "<|endoftext|>"
@@ -40,6 +41,8 @@ def _symmetric_kl(attention_map1, attention_map2):
     if len(attention_map2.shape) > 1:
         attention_map2 = attention_map2.reshape(-1)
 
+    
+
     p = dist.Categorical(probs=attention_map1)
     q = dist.Categorical(probs=attention_map2)
 
@@ -50,40 +53,86 @@ def _symmetric_kl(attention_map1, attention_map2):
     return avg_kl_divergence
 
 
-def calculate_positive_loss(attention_maps, modifier, noun):
+def tvd(attention_map1, attention_map2):
+    # Convert map into a single distribution: 16x16 -> 256
+    if len(attention_map1.shape) > 1:
+        attention_map1 = attention_map1.reshape(-1)
+    if len(attention_map2.shape) > 1:
+        attention_map2 = attention_map2.reshape(-1)
+
+    p = dist.Categorical(probs=attention_map1)
+    q = dist.Categorical(probs=attention_map2)
+
+    tvd = (p.probs - q.probs).abs().sum() / 2
+    return tvd
+
+def cos_dist(attention_map1, attention_map2):
+    # Convert map into a single distribution: 16x16 -> 256
+    if len(attention_map1.shape) > 1:
+        attention_map1 = attention_map1.reshape(-1)
+    if len(attention_map2.shape) > 1:
+        attention_map2 = attention_map2.reshape(-1)
+
+    p = dist.Categorical(probs=attention_map1)
+    q = dist.Categorical(probs=attention_map2)
+
+    cos_dist = 1 - (p.probs * q.probs).sum() / (p.probs.norm() * q.probs.norm())
+    return cos_dist
+
+
+
+def calculate_positive_loss(attention_maps, modifier, noun, dist='kl'):
     src_indices = modifier
     dest_indices = noun
 
+    if dist == 'kl':
+        func = _symmetric_kl
+    elif dist == 'tvd':
+        func = tvd
+    elif dist == 'cos':
+        func = cos_dist
+    else:
+        raise NotImplementedError
+
     if isinstance(src_indices, list) and isinstance(dest_indices, list):
         wp_pos_loss = [
-            _symmetric_kl(attention_maps[s], attention_maps[d])
+            func(attention_maps[s], attention_maps[d])
             for (s, d) in itertools.product(src_indices, dest_indices)
         ]
         positive_loss = max(wp_pos_loss)
     elif isinstance(dest_indices, list):
         wp_pos_loss = [
-            _symmetric_kl(attention_maps[src_indices], attention_maps[d])
+            func(attention_maps[src_indices], attention_maps[d])
             for d in dest_indices
         ]
         positive_loss = max(wp_pos_loss)
     elif isinstance(src_indices, list):
         wp_pos_loss = [
-            _symmetric_kl(attention_maps[s], attention_maps[dest_indices])
+            func(attention_maps[s], attention_maps[dest_indices])
             for s in src_indices
         ]
         positive_loss = max(wp_pos_loss)
     else:
-        positive_loss = _symmetric_kl(
+        positive_loss = func(
             attention_maps[src_indices], attention_maps[dest_indices]
         )
 
     return positive_loss
 
 
-def _calculate_outside_loss(attention_maps, src_indices, outside_loss):
+def _calculate_outside_loss(attention_maps, src_indices, outside_loss, dist='kl'):
     negative_loss = []
     computed_pairs = set()
     pair_counter = 0
+
+    if dist == 'kl':
+        func = _symmetric_kl
+    elif dist == 'tvd':
+        func = tvd
+    elif dist == 'cos':
+        func = cos_dist
+    else:
+        raise NotImplementedError
 
     for outside_idx in outside_loss:
         if isinstance(src_indices, list):
@@ -92,7 +141,7 @@ def _calculate_outside_loss(attention_maps, src_indices, outside_loss):
                 pair_key = (t, outside_idx)
                 if pair_key not in computed_pairs:
                     wp_neg_loss.append(
-                        _symmetric_kl(
+                        func(
                             attention_maps[t], attention_maps[outside_idx]
                         )
                     )
@@ -104,7 +153,7 @@ def _calculate_outside_loss(attention_maps, src_indices, outside_loss):
             pair_key = (src_indices, outside_idx)
             if pair_key not in computed_pairs:
                 negative_loss.append(
-                    _symmetric_kl(
+                    func(
                         attention_maps[src_indices], attention_maps[outside_idx]
                     )
                 )
@@ -237,14 +286,14 @@ def extract_attribution_indices_with_verb_root(doc):
     return subtrees
 
 def calculate_negative_loss(
-        attention_maps, modifier, noun, subtree_indices, attn_map_idx_to_wp
+        attention_maps, modifier, noun, subtree_indices, attn_map_idx_to_wp, dist='kl'
 ):
     outside_indices = _get_outside_indices(subtree_indices, attn_map_idx_to_wp)
     negative_modifier_loss, num_modifier_pairs = _calculate_outside_loss(
-        attention_maps, modifier, outside_indices
+        attention_maps, modifier, outside_indices, dist=dist
     )
     negative_noun_loss, num_noun_pairs = _calculate_outside_loss(
-        attention_maps, noun, outside_indices
+        attention_maps, noun, outside_indices, dist=dist
     )
 
     negative_modifier_loss = -sum(negative_modifier_loss) / len(outside_indices)

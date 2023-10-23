@@ -10,11 +10,14 @@ from data_CC import CC
 from tqdm import tqdm
 import utils.vis_utils as vis_utils
 
-def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu, number, print_volumn, excite, lambda_excite):
+def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist):
     pipe = load_model(model_path, gpu)
     pipe.print_volumn = print_volumn
     pipe.excite = excite
     pipe.lambda_excite = lambda_excite
+    pipe.sum_attn = sum_attn
+    pipe.lambda_sum_attn = lambda_sum_attn
+    pipe.dist = dist
     for prompt in tqdm(prompts):
         images = []
         for seed in seeds:
@@ -49,6 +52,41 @@ def save_image(image, prompt, seed, output_directory):
 
     file_name = f"{output_directory}/{seed}.png"
     image.save(file_name)
+
+
+def save_parameters_to_txt(seeds, dataset, reverse, gpu, number, print_volume, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, step_size, file_name="parameters.txt"):
+    # Create a dictionary to store the parameters
+    parameters = {
+        "seeds": seeds,
+        "dataset": dataset,
+        "reverse": reverse,
+        "gpu": gpu,
+        "number": number,
+        "print_volume": print_volume,
+        "excite": excite,
+        "lambda_excite": lambda_excite,
+        "sum_attn": sum_attn,
+        "lambda_sum_attn": lambda_sum_attn,
+        "dist": dist,
+        'step_size': step_size,
+    }
+
+    # create the output directory if it doesn't exist
+    if not os.path.exists(os.path.dirname(file_name)):
+        os.makedirs(os.path.dirname(file_name))
+
+    # Open the file in write mode and write the parameters
+    with open(file_name, 'w') as file:
+        for key, value in parameters.items():
+            if isinstance(value, bool):
+                value = str(value).lower()  # Convert bool to lowercase string
+            if isinstance(value, list):
+                # only store the value's length if it's a list
+                value = len(value)
+            line = f"{key}: {value}\n"
+            file.write(line)
+
+    print(f"Parameters saved to {file_name}")
 
 
 if __name__ == "__main__":
@@ -96,14 +134,26 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    seed_number = 12345
     torch.manual_seed(12345)
     seeds = torch.randint(0, 100000, (4,))
-    reverse = False
-    gpu = 1
-    number = 12
+    dataset = data['objects']
+    reverse = True
+    gpu = 2
+    number = 24
     print_volumn = False
-    excite = True
-    lambda_excite = 0.1
+    excite = False
+    lambda_excite = 0.5 if excite else 0.0      
+    sum_attn = False
+    lambda_sum_attn = 0.5 if sum_attn else 0.0
+    dist = 'cos'
+    args.step_size = 15.0
+
+
+
+    save_parameters_to_txt(seed_number, dataset, reverse, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, args.step_size , file_name=f"{args.output_directory}/{number}/parameters.txt")
+
+
 
     sentences = [
     "a pink sunflower and a yellow flamingo",
@@ -119,4 +169,4 @@ if __name__ == "__main__":
 
     
 
-    main(sentences[::-1 if reverse else 1], seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite)
+    main(dataset[::-1 if reverse else 1], seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist)

@@ -448,6 +448,30 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         excite_loss = self._compute_excite_loss(max_attention_per_index)
 
         return excite_loss
+    
+    def _compute_volumn_attention_per_index(self, attention_maps):
+        attention_for_text = torch.stack(attention_maps, dim=-1)[:,:,1:-1]
+        # attention_for_text *= 100
+        attention_for_text = torch.nn.functional.softmax(attention_for_text, dim=-1)
+
+        # shift indices by 1 to account for the start token
+        indices = [index[-1]-1 if isinstance(index[-1], int) else index[-1][0]-1  for index in self.subtrees_indices] 
+      
+        # Extract the maximum values
+        weight_per_token = attention_for_text.sum(dim=[0,1]) / attention_for_text.sum()
+
+
+        return weight_per_token[indices]
+
+    
+    def _sum_loss(self, attention_maps, prompt, attn_map_idx_to_wp):
+
+        volumn_attention_per_index = self._compute_volumn_attention_per_index(
+            attention_maps=attention_maps,
+        )
+        sum_loss = self._compute_excite_loss(volumn_attention_per_index)
+
+        return sum_loss
 
     def _compute_loss(
             self, attention_maps: List[torch.Tensor], prompt: Union[str, List[str]]
@@ -461,7 +485,12 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         loss = self._attribution_loss(attention_maps, prompt, attn_map_idx_to_wp)
 
         if self.excite:
-            loss += self._excitation_loss(attention_maps, prompt, attn_map_idx_to_wp)
+            assert hasattr(self, 'lambda_excite'), "please specify lambda_excite"
+            loss += self.lambda_excite * self._excitation_loss(attention_maps, prompt, attn_map_idx_to_wp)
+
+        if self.sum_attn:
+            assert hasattr(self, 'lambda_sum_attn'), "please specify lambda_sum_attn"
+            loss += self.lambda_sum_attn * self._sum_loss(attention_maps, prompt, attn_map_idx_to_wp)
 
         return loss
 
@@ -503,11 +532,11 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         for pair in all_subtree_pairs:
             noun, modifier = pair
             positive_loss.append(
-                calculate_positive_loss(attention_maps, modifier, noun)
+                calculate_positive_loss(attention_maps, modifier, noun, dist=self.dist)
             )
             negative_loss.append(
                 calculate_negative_loss(
-                    attention_maps, modifier, noun, subtree_indices, attn_map_idx_to_wp
+                    attention_maps, modifier, noun, subtree_indices, attn_map_idx_to_wp, dist=self.dist
                 )
             )
 
