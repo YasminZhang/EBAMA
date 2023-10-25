@@ -15,6 +15,9 @@ from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion_attend_and_e
     AttendExciteAttnProcessor,
 
 )
+
+
+
 import numpy as np
 import math
 from diffusers.schedulers import KarrasDiffusionSchedulers
@@ -26,8 +29,13 @@ from transformers import CLIPImageProcessor, CLIPTextModel, CLIPTokenizer
 
 from compute_loss import get_attention_map_index_to_wordpiece, split_indices, calculate_positive_loss, calculate_negative_loss, get_indices, start_token, end_token, align_wordpieces_indices, extract_attribution_indices, extract_attribution_indices_with_verbs, extract_attribution_indices_with_verb_root
 
+# import image from PIL
+from PIL import Image
 
 logger = logging.get_logger(__name__)
+
+
+
 
 
 class SynGenDiffusionPipeline(StableDiffusionPipeline):
@@ -276,22 +284,42 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         # )
         text_embeddings = [prompt_embeds[1][None,...]]
 
+        if self.model2 is not None:
+            negative_prompt_embeds2,  prompt_embeds2 = self._encode_prompt(
+            self.prompt2,
+            device,
+            num_images_per_prompt,
+            do_classifier_free_guidance,
+            negative_prompt,
+            prompt_embeds=None,
+            negative_prompt_embeds=None,
+            lora_scale=text_encoder_lora_scale,
+        )
+            # For classifier free guidance, we need to do two forward passes.
+            # Here we concatenate the unconditional and text embeddings into a single batch
+            # to avoid doing two forward passes
+            if do_classifier_free_guidance:
+                prompt_embeds_ = torch.stack([negative_prompt_embeds2, prompt_embeds2], dim=0) 
+
+        latents2 = latents.clone().detach().requires_grad_(False)
+    
         # 7. Denoising loop
         num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
                 # NEW
-                if i < 25:
-                  latents = self._syngen_step(
-                      latents,
-                      text_embeddings,
-                      t,
-                      i,
-                      syngen_step_size,
-                      cross_attention_kwargs,
-                      prompt,
-                      max_iter_to_alter=25,
-                  )
+                if self.skip:
+                    if i < 25:
+                        latents = self._syngen_step(
+                            latents,
+                            text_embeddings,
+                            t,
+                            i,
+                            syngen_step_size,
+                            cross_attention_kwargs,
+                            prompt,
+                            max_iter_to_alter=25,
+                        )
 
                 # expand the latents if we are doing classifier free guidance
                 latent_model_input = (
@@ -301,6 +329,10 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
                     latent_model_input, t
                 )
 
+                latent2_model_input = self.model2.scheduler.scale_model_input(
+                    torch.cat([latents2] * 2), t
+                )
+
                 # predict the noise residual
                 noise_pred = self.unet(
                     latent_model_input,
@@ -308,21 +340,49 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
                     encoder_hidden_states=prompt_embeds,
                     cross_attention_kwargs=cross_attention_kwargs,
                     return_dict=False,
+                )[0] if self.model2 is None else self.model2.unet(
+                   torch.stack([latent_model_input[0], latent2_model_input[0], latent_model_input[1], latent2_model_input[1]], dim=0),
+                    t,
+                    encoder_hidden_states=torch.stack([prompt_embeds[0], prompt_embeds_[0], prompt_embeds[1], prompt_embeds_[1]],dim=0),
+                    cross_attention_kwargs=cross_attention_kwargs,
+                    return_dict=False,
                 )[0]
 
                 # perform guidance
                 if do_classifier_free_guidance:
-                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                    noise_pred = noise_pred_uncond + guidance_scale * (
-                            noise_pred_text - noise_pred_uncond
-                    )
+                    if self.model2 is None:
+                        noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                        noise_pred = noise_pred_uncond + guidance_scale * (
+                                noise_pred_text - noise_pred_uncond
+                        )
+                    else:
+                        noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                        noise_pred = noise_pred_uncond + guidance_scale * (
+                                noise_pred_text - noise_pred_uncond
+                        )
+                        noise_pred, noise_pred2 = noise_pred.chunk(2)
+                        # noise_pred_uncond, noise_pred_text, noise_pred_uncond2, noise_pred_text2 = noise_pred.chunk(4)
+                        # noise_pred = noise_pred_uncond + guidance_scale * (
+                        #         noise_pred_text - noise_pred_uncond
+                        # )
+                        # noise_pred2 = noise_pred_uncond2 + guidance_scale * (
+                        #         noise_pred_text2 - noise_pred_uncond2
+                        # )
+    
+
 
                 if do_classifier_free_guidance and guidance_rescale > 0.0:
                     # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
-                    noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=guidance_rescale)
+                    noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text[0], guidance_rescale=guidance_rescale)
+                    if self.model2 is not None:
+                        noise_pred2 = rescale_noise_cfg(noise_pred2, noise_pred_text[1], guidance_rescale=guidance_rescale)
 
                 # compute the previous noisy sample x_t -> x_t-1
-                latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
+                if self.model2 is None:
+                    latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
+                else:
+                    latents = self.scheduler.step(noise_pred , t, latents, **extra_step_kwargs, return_dict=False)[0]
+                    latents2 = self.model2.scheduler.step(noise_pred2, t, latents2, **extra_step_kwargs, return_dict=False)[0] 
 
                 # call the callback, if provided
                 if i == len(timesteps) - 1 or (
@@ -331,10 +391,12 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
                     progress_bar.update()
                     if callback is not None and i % callback_steps == 0:
                         callback(i, t, latents)
+                
 
         if not output_type == "latent":
             image = self.vae.decode(latents / self.vae.config.scaling_factor, return_dict=False)[0]
             # image, has_nsfw_concept = self.run_safety_checker(image, device, prompt_embeds.dtype)
+            image2 = self.vae.decode(latents2 / self.vae.config.scaling_factor, return_dict=False)[0]
             has_nsfw_concept = None
         else:
             image = latents
@@ -346,6 +408,10 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
             do_denormalize = [not has_nsfw for has_nsfw in has_nsfw_concept]
 
         image = self.image_processor.postprocess(image, output_type=output_type, do_denormalize=do_denormalize)
+        
+        # convert the torch tensor to a PIL Image
+        image2 = self.image_processor.postprocess(image2, output_type=output_type, do_denormalize=do_denormalize)
+
 
         # Offload all models
         #self._maybe_free_model_hooks()
@@ -353,11 +419,13 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
 
         if not return_dict:
             return (image, has_nsfw_concept)
-
+        
+        
         return StableDiffusionPipelineOutput(
             images=image, nsfw_content_detected=has_nsfw_concept
+        ), StableDiffusionPipelineOutput(
+            images=image2, nsfw_content_detected=has_nsfw_concept
         )
-
 
     def _syngen_step(
             self,
@@ -505,6 +573,8 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         self.subtrees_indices = self._extract_attribution_indices(prompt)
         subtrees_indices = self.subtrees_indices
         loss = 0
+
+     
 
         for subtree_indices in subtrees_indices:
             noun, modifier = split_indices(subtree_indices)
