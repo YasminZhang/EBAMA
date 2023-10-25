@@ -300,6 +300,7 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
             # to avoid doing two forward passes
             if do_classifier_free_guidance:
                 prompt_embeds_ = torch.stack([negative_prompt_embeds2, prompt_embeds2], dim=0) 
+                text_embeddings2 = [prompt_embeds_[1][None,...]]
 
         latents2 = latents.clone().detach().requires_grad_(False)
     
@@ -321,6 +322,7 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
                             max_iter_to_alter=25,
                         )
 
+        
                 # expand the latents if we are doing classifier free guidance
                 latent_model_input = (
                     torch.cat([latents] * 2) if do_classifier_free_guidance else latents
@@ -361,13 +363,8 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
                                 noise_pred_text - noise_pred_uncond
                         )
                         noise_pred, noise_pred2 = noise_pred.chunk(2)
-                        # noise_pred_uncond, noise_pred_text, noise_pred_uncond2, noise_pred_text2 = noise_pred.chunk(4)
-                        # noise_pred = noise_pred_uncond + guidance_scale * (
-                        #         noise_pred_text - noise_pred_uncond
-                        # )
-                        # noise_pred2 = noise_pred_uncond2 + guidance_scale * (
-                        #         noise_pred_text2 - noise_pred_uncond2
-                        # )
+                       
+
     
 
 

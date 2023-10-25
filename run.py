@@ -173,34 +173,34 @@ class AttentionReplace(AttentionControlEdit):
         self.mapper = seq_aligner.get_replacement_mapper(prompts, tokenizer).to(device)
         
 
-# class AttentionRefine(AttentionControlEdit):
+class AttentionRefine(AttentionControlEdit):
 
-#     def replace_cross_attention(self, attn_base, att_replace):
-#         attn_base_replace = attn_base[:, :, self.mapper].permute(2, 0, 1, 3)
-#         attn_replace = attn_base_replace * self.alphas + att_replace * (1 - self.alphas)
-#         return attn_replace
+    def replace_cross_attention(self, attn_base, att_replace):
+        attn_base_replace = attn_base[:, :, self.mapper].permute(2, 0, 1, 3)
+        attn_replace = attn_base_replace * self.alphas + att_replace * (1 - self.alphas)
+        return attn_replace
 
-#     def __init__(self, prompts, num_steps: int, cross_replace_steps: float, self_replace_steps: float,
-#                  local_blend: Optional[LocalBlend] = None, tokenizer = None, device = None):
-#         super(AttentionRefine, self).__init__(prompts, num_steps, cross_replace_steps, self_replace_steps, local_blend)
-#         self.mapper, alphas = seq_aligner.get_refinement_mapper(prompts, tokenizer)
-#         self.mapper, alphas = self.mapper.to(device), alphas.to(device)
-#         self.alphas = alphas.reshape(alphas.shape[0], 1, 1, alphas.shape[1])
+    def __init__(self, prompts, num_steps: int, cross_replace_steps: float, self_replace_steps: float,
+                 local_blend: Optional[LocalBlend] = None, tokenizer = None, device = None):
+        super(AttentionRefine, self).__init__(prompts, num_steps, cross_replace_steps, self_replace_steps, local_blend, tokenizer, device)
+        self.mapper, alphas = seq_aligner.get_refinement_mapper(prompts, tokenizer)
+        self.mapper, alphas = self.mapper.to(device), alphas.to(device)
+        self.alphas = alphas.reshape(alphas.shape[0], 1, 1, alphas.shape[1])
 
 
-# class AttentionReweight(AttentionControlEdit):
+class AttentionReweight(AttentionControlEdit):
 
-#     def replace_cross_attention(self, attn_base, att_replace):
-#         if self.prev_controller is not None:
-#             attn_base = self.prev_controller.replace_cross_attention(attn_base, att_replace)
-#         attn_replace = attn_base[None, :, :, :] * self.equalizer[:, None, None, :]
-#         return attn_replace
+    def replace_cross_attention(self, attn_base, att_replace):
+        if self.prev_controller is not None:
+            attn_base = self.prev_controller.replace_cross_attention(attn_base, att_replace)
+        attn_replace = attn_base[None, :, :, :] * self.equalizer[:, None, None, :]
+        return attn_replace
 
-#     def __init__(self, prompts, num_steps: int, cross_replace_steps: float, self_replace_steps: float, equalizer,
-#                 local_blend: Optional[LocalBlend] = None, controller: Optional[AttentionControlEdit] = None):
-#         super(AttentionReweight, self).__init__(prompts, num_steps, cross_replace_steps, self_replace_steps, local_blend)
-#         self.equalizer = equalizer.to(device)
-#         self.prev_controller = controller
+    def __init__(self, prompts, num_steps: int, cross_replace_steps: float, self_replace_steps: float, equalizer,
+                local_blend: Optional[LocalBlend] = None, controller: Optional[AttentionControlEdit] = None, device = None):
+        super(AttentionReweight, self).__init__(prompts, num_steps, cross_replace_steps, self_replace_steps, local_blend)
+        self.equalizer = equalizer.to(device)
+        self.prev_controller = controller
 
 
 def get_equalizer(text: str, word_select: Union[int, Tuple[int, ...]], values: Union[List[float],
@@ -217,7 +217,7 @@ def get_equalizer(text: str, word_select: Union[int, Tuple[int, ...]], values: U
 
 
 
-def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, model2, dataset2):
+def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, model2, dataset2, skip):
     pipe = load_model(model_path, gpu)
     pipe.print_volumn = print_volumn
     pipe.excite = excite
@@ -225,33 +225,40 @@ def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu,
     pipe.sum_attn = sum_attn
     pipe.lambda_sum_attn = lambda_sum_attn
     pipe.dist = dist
-    pipe.skip = False
-    if model2:
-        ldm_stable = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4", use_auth_token='S').to(f'cuda:{gpu}')
-        extra_set_kwargs = {}
-        ldm_stable.scheduler.set_timesteps(50, **extra_set_kwargs)
-        tokenizer = ldm_stable.tokenizer
-        controller = AttentionReplace(['a green balloon', 'a red balloon'], NUM_DIFFUSION_STEPS, cross_replace_steps=.8, self_replace_steps=0.4, tokenizer=tokenizer, device=f'cuda:{gpu}')
-        ptp_utils.register_attention_control(ldm_stable, controller)
-        pipe.model2 = ldm_stable
+    pipe.skip = skip
 
-    else:
-        pipe.model2 = None
-        
+    for kk in range(len(prompts)):
+        for cross in [.2, .4, .6, .8]:
+            if model2:
+                ldm_stable = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4", use_auth_token='S').to(f'cuda:{gpu}')
+                extra_set_kwargs = {}
+                ldm_stable.scheduler.set_timesteps(50, **extra_set_kwargs)
+                tokenizer = ldm_stable.tokenizer
+                controller = AttentionRefine([prompts[kk], dataset2[kk]], NUM_DIFFUSION_STEPS, cross_replace_steps=cross, self_replace_steps=0.4, tokenizer=tokenizer, device=f'cuda:{gpu}')
+                ptp_utils.register_attention_control(ldm_stable, controller)
+                pipe.model2 = ldm_stable
 
-    for prompt in tqdm(prompts):
-        images = []
-        pipe.prompt2 = dataset2[0] # TODO
-        for seed in seeds:
-            print(f'Running on: "{prompt}"')
-            seed = seed.item()
-            image, image2 = generate(pipe, prompt, seed, step_size, attn_res)
-            save_image(image, prompt, seed, output_directory+f'/{number}/'+prompt)
-            save_image(image2, prompt, seed, output_directory+f'/{number}/'+dataset2[0])
-            images.append(image)
+            else:
+                pipe.model2 = None
+                
 
-        joined_image = vis_utils.get_image_grid(images)
-        joined_image.save(output_directory+f'/{number}/'+f'{prompt}.png')
+            prompt = prompts[kk]
+            images = []
+            images2 = []
+            pipe.prompt2 = dataset2[kk] # TODO
+            for seed in seeds:
+                print(f'Running on: "{prompt}"')
+                seed = seed.item()
+                image, image2 = generate(pipe, prompt, seed, step_size, attn_res)
+                save_image(image, prompt, seed, output_directory+f'/{number}/'+prompt+f'{cross}')
+                save_image(image2, prompt, seed, output_directory+f'/{number}/'+pipe.prompt2+f'{cross}')
+                images.append(image)
+                images2.append(image2)
+
+            # joined_image = vis_utils.get_image_grid(images)
+            # joined_image.save(output_directory+f'/{number}/'+f'{prompt}.png')
+            # joined_image2 = vis_utils.get_image_grid(images2)
+            # joined_image2.save(output_directory+f'/{number}/'+f'{pipe.prompt2}.png')
 
 
 
@@ -330,7 +337,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--output_directory',
         type=str,
-        default='./projects/Syntax-Guided-Generation/output'
+        default='./output4'
     )
 
     parser.add_argument(
@@ -356,22 +363,39 @@ if __name__ == "__main__":
 
 
     args = parser.parse_args()
-
-    seed_number = 12345
-    torch.manual_seed(12345)
+    print_volumn = False
+    seed_number = 1234
+    torch.manual_seed(seed_number)
     seeds = torch.randint(0, 100000, (4,))
     dataset = data['objects']
     reverse = True
-    gpu = 2
-    number = 'test_ptp'
-    print_volumn = False
-    excite = False
+    
+
+    mode = 3
+    gpu = 3 if mode == 3 else 2
+    if mode == 1:
+        number = 'test_ptp'
+        skip = False
+        excite = False
+    
+    if mode == 2:
+        number = 'test_ptp_aug'
+        skip = True
+        excite = False
+    
+    if mode == 3:
+        number = 'test_ptp_aug_complete'
+        skip = True
+        excite = True
+
     lambda_excite = 0.5 if excite else 0.0      
     sum_attn = False
     lambda_sum_attn = 0.5 if sum_attn else 0.0
     dist = 'kl'
-    args.step_size = 20.0
+    args.step_size = 10.0
     model2 = True
+
+    
 
 
 
@@ -391,9 +415,28 @@ if __name__ == "__main__":
     "a spiky bowl and a green cat"
     ]
 
-    dataset = ['a green balloon']
-    dataset2 = ['a red balloon']
+    # dataset = ['a yellow car', 'a yellow bicyble', 'a yellow cube', 'a yellow bench']
+    # dataset2 = ['a green car', 'a green bicyble', 'a green cube', 'a green bench']
 
+    # dataset = ['a yellow book and a red vase', 'a green backpack and a black apple']
+    # dataset2 = ['a red book and a yellow vase', 'a black backpack and a green apple']
+
+    # dataset = ['photo of a cat riding a red bike', 'photo of a cat riding a furry bike']
+    # dataset2 = ['photo of a cat riding a yellow bike', 'photo of a cat riding a spiky bike']
+
+    # dataset = ['a boy holding a handful of red ballons', 'a lion with a black crown', 'a turtle and a yellow bowl']
+    # dataset2 = ['a boy holding a handful of blue ballons', 'a lion with a golden crown', 'a turtle and a blue bowl']
+
+    # dataset = ['a red cup on a table', 'a frog on a pink bench', 'a red cube and a blue ball', 'a vase with yellow flowers' , 'a red vase and a book', 'a green backpack and a black apple']
+    # dataset2 = ['a red cup on a blue table', 'a blue frog on a pink bench', 'a red cube and a yellow ball', 'a white vase with yellow flowers', 'a red vase and a yellow book', 'a green backpack and a blue apple']
+
+    # dataset = ['a vase with yellow flowers', 'a cat and a yellow bowl', 'a red cube and white balls', 'a green backpack and a gray apple']
+    # dataset2 = ['a red vase with yellow flowers', 'a blue cat and a yellow bowl', 'a red cube and blue balls', 'a green backpack and a black apple']
+
+    dataset = [ 'a dog is playing a leather drum on the beach', ]
+    dataset2 = ['a dog is playing a metal drum on the beach', ]
+
+    seeds = [torch.tensor(69775)]
     
 
-    main(dataset[::-1 if reverse else 1], seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, model2, dataset2)
+    main(dataset, seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, model2, dataset2, skip)
