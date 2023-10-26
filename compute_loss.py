@@ -286,18 +286,26 @@ def extract_attribution_indices_with_verb_root(doc):
     return subtrees
 
 def calculate_negative_loss(
-        attention_maps, modifier, noun, subtree_indices, attn_map_idx_to_wp, dist='kl'
+        attention_maps, modifier, noun, subtree_indices, attn_map_idx_to_wp, dist='kl', ours=False
 ):
     outside_indices = _get_outside_indices(subtree_indices, attn_map_idx_to_wp)
-    negative_modifier_loss, num_modifier_pairs = _calculate_outside_loss(
-        attention_maps, modifier, outside_indices, dist=dist
-    )
+    
     negative_noun_loss, num_noun_pairs = _calculate_outside_loss(
         attention_maps, noun, outside_indices, dist=dist
     )
 
-    negative_modifier_loss = -sum(negative_modifier_loss) / len(outside_indices)
+    
+
     negative_noun_loss = -sum(negative_noun_loss) / len(outside_indices)
+
+    if ours:
+        return negative_noun_loss
+
+    negative_modifier_loss, num_modifier_pairs = _calculate_outside_loss(
+        attention_maps, modifier, outside_indices, dist=dist
+    )
+    negative_modifier_loss = -sum(negative_modifier_loss) / len(outside_indices)
+    
 
     negative_loss = (negative_modifier_loss + negative_noun_loss) / 2
 

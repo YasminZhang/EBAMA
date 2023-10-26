@@ -300,9 +300,9 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
             # to avoid doing two forward passes
             if do_classifier_free_guidance:
                 prompt_embeds_ = torch.stack([negative_prompt_embeds2, prompt_embeds2], dim=0) 
-                text_embeddings2 = [prompt_embeds_[1][None,...]]
+                #text_embeddings2 = [prompt_embeds_[1][None,...]]
 
-        latents2 = latents.clone().detach().requires_grad_(False)
+            latents2 = latents.clone().detach().requires_grad_(False)
     
         # 7. Denoising loop
         num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
@@ -331,55 +331,49 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
                     latent_model_input, t
                 )
 
-                latent2_model_input = self.model2.scheduler.scale_model_input(
-                    torch.cat([latents2] * 2), t
-                )
-
-                # predict the noise residual
-                noise_pred = self.unet(
-                    latent_model_input,
-                    t,
-                    encoder_hidden_states=prompt_embeds,
-                    cross_attention_kwargs=cross_attention_kwargs,
-                    return_dict=False,
-                )[0] if self.model2 is None else self.model2.unet(
-                   torch.stack([latent_model_input[0], latent2_model_input[0], latent_model_input[1], latent2_model_input[1]], dim=0),
-                    t,
-                    encoder_hidden_states=torch.stack([prompt_embeds[0], prompt_embeds_[0], prompt_embeds[1], prompt_embeds_[1]],dim=0),
-                    cross_attention_kwargs=cross_attention_kwargs,
-                    return_dict=False,
-                )[0]
-
-                # perform guidance
-                if do_classifier_free_guidance:
-                    if self.model2 is None:
-                        noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                        noise_pred = noise_pred_uncond + guidance_scale * (
-                                noise_pred_text - noise_pred_uncond
-                        )
-                    else:
-                        noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                        noise_pred = noise_pred_uncond + guidance_scale * (
-                                noise_pred_text - noise_pred_uncond
-                        )
-                        noise_pred, noise_pred2 = noise_pred.chunk(2)
-                       
-
-    
+                if self.model2 is not None:
 
 
-                if do_classifier_free_guidance and guidance_rescale > 0.0:
-                    # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
+                    latent2_model_input = self.model2.scheduler.scale_model_input(
+                        torch.cat([latents2] * 2), t
+                    )
+
+                    noise_pred = self.model2.unet(
+                                    torch.stack([latent_model_input[0], latent2_model_input[0], latent_model_input[1], latent2_model_input[1]], dim=0),
+                                    t,
+                                    encoder_hidden_states=torch.stack([prompt_embeds[0], prompt_embeds_[0], prompt_embeds[1], prompt_embeds_[1]],dim=0),
+                                    cross_attention_kwargs=cross_attention_kwargs,
+                                    return_dict=False,
+                                    )[0]
+
+                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                    noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+                    noise_pred, noise_pred2 = noise_pred.chunk(2)
+
                     noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text[0], guidance_rescale=guidance_rescale)
-                    if self.model2 is not None:
-                        noise_pred2 = rescale_noise_cfg(noise_pred2, noise_pred_text[1], guidance_rescale=guidance_rescale)
+                    noise_pred2 = rescale_noise_cfg(noise_pred2, noise_pred_text[1], guidance_rescale=guidance_rescale)
 
-                # compute the previous noisy sample x_t -> x_t-1
-                if self.model2 is None:
-                    latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
-                else:
                     latents = self.scheduler.step(noise_pred , t, latents, **extra_step_kwargs, return_dict=False)[0]
                     latents2 = self.model2.scheduler.step(noise_pred2, t, latents2, **extra_step_kwargs, return_dict=False)[0] 
+                        
+                else: 
+                    # predict the noise residual
+                    noise_pred = self.unet(
+                        latent_model_input,
+                        t,
+                        encoder_hidden_states=prompt_embeds,
+                        cross_attention_kwargs=cross_attention_kwargs,
+                        return_dict=False,
+                    )[0]  
+                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                    noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+
+                    noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text[0], guidance_rescale=guidance_rescale)
+
+                    latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
+          
+
+
 
                 # call the callback, if provided
                 if i == len(timesteps) - 1 or (
@@ -393,7 +387,8 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         if not output_type == "latent":
             image = self.vae.decode(latents / self.vae.config.scaling_factor, return_dict=False)[0]
             # image, has_nsfw_concept = self.run_safety_checker(image, device, prompt_embeds.dtype)
-            image2 = self.vae.decode(latents2 / self.vae.config.scaling_factor, return_dict=False)[0]
+            if self.model2:
+                image2 = self.vae.decode(latents2 / self.vae.config.scaling_factor, return_dict=False)[0]
             has_nsfw_concept = None
         else:
             image = latents
@@ -407,7 +402,8 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         image = self.image_processor.postprocess(image, output_type=output_type, do_denormalize=do_denormalize)
         
         # convert the torch tensor to a PIL Image
-        image2 = self.image_processor.postprocess(image2, output_type=output_type, do_denormalize=do_denormalize)
+        if self.model2:
+            image2 = self.image_processor.postprocess(image2, output_type=output_type, do_denormalize=do_denormalize)
 
 
         # Offload all models
@@ -422,7 +418,7 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
             images=image, nsfw_content_detected=has_nsfw_concept
         ), StableDiffusionPipelineOutput(
             images=image2, nsfw_content_detected=has_nsfw_concept
-        )
+        ) if self.model2 else None
 
     def _syngen_step(
             self,
@@ -514,6 +510,23 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
 
         return excite_loss
     
+    def _excitation_loss_ours(self, attention_maps, prompt, attn_map_idx_to_wp):
+     
+        max_attention_per_index = self._compute_max_attention_per_index(
+            attention_maps=attention_maps,
+        )
+
+        excite_loss = self._compute_excite_loss_ours(max_attention_per_index)
+
+        return excite_loss
+    
+    @staticmethod
+    def _compute_excite_loss_ours(max_attention_per_index: List[torch.Tensor]) -> torch.Tensor:
+        """Computes the attend-and-excite loss using the maximum attention value for each token."""
+        loss = - sum(max_attention_per_index)
+        return loss
+
+    
     def _compute_volumn_attention_per_index(self, attention_maps):
         attention_for_text = torch.stack(attention_maps, dim=-1)[:,:,1:-1]
         # attention_for_text *= 100
@@ -542,6 +555,15 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
             self, attention_maps: List[torch.Tensor], prompt: Union[str, List[str]]
     ) -> torch.Tensor:
         attn_map_idx_to_wp = get_attention_map_index_to_wordpiece(self.tokenizer, prompt)
+
+        if self.ours:
+            loss_s = self._attribution_loss_ours(attention_maps, prompt, attn_map_idx_to_wp)
+            loss_t = self._excitation_loss_ours(attention_maps, prompt, attn_map_idx_to_wp)
+            #print('loss_s,', loss_s, 'loss_t,', loss_t)
+            loss = loss_s + self.lambda_ours * loss_t
+            return loss
+        
+
         if self.print_volumn:
             attention_maps_softmax = torch.nn.functional.softmax(torch.stack(attention_maps[1:]), dim=0)
             
@@ -586,6 +608,30 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
             loss += negative_loss
 
         return loss
+    
+    def _attribution_loss_ours(
+            self,
+            attention_maps: List[torch.Tensor],
+            prompt: Union[str, List[str]],
+            attn_map_idx_to_wp,
+    ):
+        self.subtrees_indices = self._extract_attribution_indices_ours(prompt)
+        subtrees_indices = self.subtrees_indices
+        loss = 0
+
+        for subtree_indices in subtrees_indices:
+            noun, modifier = split_indices(subtree_indices)
+            all_subtree_pairs = list(itertools.product(noun, modifier))
+            positive_loss, negative_loss = self._calculate_losses(
+                attention_maps,
+                all_subtree_pairs,
+                subtree_indices,
+                attn_map_idx_to_wp,
+            )
+            loss += positive_loss
+            loss += negative_loss
+
+        return loss
 
     def _calculate_losses(
             self,
@@ -598,12 +644,13 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         negative_loss = []
         for pair in all_subtree_pairs:
             noun, modifier = pair
-            positive_loss.append(
-                calculate_positive_loss(attention_maps, modifier, noun, dist=self.dist)
-            )
+            if modifier:
+                positive_loss.append(
+                    calculate_positive_loss(attention_maps, modifier, noun, dist=self.dist)
+                )
             negative_loss.append(
                 calculate_negative_loss(
-                    attention_maps, modifier, noun, subtree_indices, attn_map_idx_to_wp, dist=self.dist
+                    attention_maps, modifier, noun, subtree_indices, attn_map_idx_to_wp, dist=self.dist, ours = self.ours
                 )
             )
 
@@ -669,6 +716,48 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         #print(f"Final pairs collected: {pairs}")
         paired_indices = self._align_indices(prompt, pairs)
         return paired_indices
+    
+    def _extract_attribution_indices_ours(self, prompt):
+        # extract standard attribution indices
+        pairs = extract_attribution_indices(self.doc)
+
+        # extract attribution indices with verbs in between
+        pairs_2 = extract_attribution_indices_with_verb_root(self.doc)
+        pairs_3 = extract_attribution_indices_with_verbs(self.doc)
+        # make sure there are no duplicates
+        pairs = unify_lists(pairs, pairs_2, pairs_3)
+
+
+        #print(f"Final pairs collected: {pairs}")
+        paired_indices = self._align_indices(prompt, pairs)
+
+
+        nouns_already_extracted = []
+        # nouns already extracted
+        for indices in paired_indices:
+            temp = indices[-1]
+            if isinstance(temp, list):
+                nouns_already_extracted += temp
+            else:
+                nouns_already_extracted.append(temp)
+
+        # extract nouns
+        nouns = extract_noun_indices(self.doc)
+        noun_indices = self._align_indices(prompt, [[noun] for noun in nouns])
+
+
+        paired_indices += [[None, noun[0]] for noun in noun_indices if noun[0] not in nouns_already_extracted]
+        #print('paired_indices', paired_indices)
+
+
+        return paired_indices
+
+def extract_noun_indices(doc):
+    noun_indices = []
+    for token in doc:
+        if token.pos_ == "NOUN" or token.pos_ == "PROPN":
+            noun_indices.append(token)
+    return noun_indices
 
 def _get_attention_maps_list(
         attention_maps: torch.Tensor
