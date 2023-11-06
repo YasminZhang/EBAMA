@@ -9,6 +9,8 @@ from eval_data import data
 from data_CC import CC
 from tqdm import tqdm
 import utils.vis_utils as vis_utils
+from data_abc import abc
+from data_abc2 import abc2
 
 import pandas as pd
 
@@ -24,6 +26,8 @@ def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu,
     pipe.ours = ours
     pipe.lambda_ours = lambda_ours
     pipe.skip = True
+    if print_volumn:
+        pipe.max_attn_value = []
     for prompt in tqdm(prompts):
         images = []
         for seed in seeds:
@@ -33,6 +37,15 @@ def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu,
             save_image(image, prompt, seed, output_directory+f'/{number}/'+prompt)
             images.append(image)
 
+            if print_volumn:
+                df = pd.DataFrame(pipe.max_attn_value)
+                df.to_csv(output_directory+f'/{number}/'+prompt+'/max_attn_value.csv', index=False)
+                # make a plot, and save it
+                import matplotlib.pyplot as plt
+                plt.plot(df)
+                plt.savefig(output_directory+f'/{number}/'+prompt+'/max_attn_value.png')
+            
+                        
         joined_image = vis_utils.get_image_grid(images)
         joined_image.save(output_directory+f'/{number}/'+f'{prompt}.png')
 
@@ -60,7 +73,7 @@ def save_image(image, prompt, seed, output_directory):
     image.save(file_name)
 
 
-def save_parameters_to_txt(seeds, dataset, reverse, gpu, number, print_volume, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, step_size, file_name="parameters.txt"):
+def save_parameters_to_txt(seeds, dataset, reverse, gpu, number, print_volume, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, step_size, lambda_ours, file_name="parameters.txt"):
     # Create a dictionary to store the parameters
     parameters = {
         "seeds": seeds,
@@ -75,6 +88,7 @@ def save_parameters_to_txt(seeds, dataset, reverse, gpu, number, print_volume, e
         "lambda_sum_attn": lambda_sum_attn,
         "dist": dist,
         'step_size': step_size,
+        'lambda_ours': lambda_ours
     }
 
     # create the output directory if it doesn't exist
@@ -113,7 +127,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--output_directory',
         type=str,
-        default='./projects/Syntax-Guided-Generation/ours'
+        default='./projects/Syntax-Guided-Generation/ours/'
     )
 
     parser.add_argument(
@@ -140,39 +154,77 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    seed_number = 12345
-    torch.manual_seed(seed_number)
-    seeds = torch.randint(0, 100000, (4,))
+    
     
     print_volumn = False
     sum_attn = False
     lambda_sum_attn = 0.5 if sum_attn else 0.0
     excite = False
     lambda_excite = 0.5 if excite else 0.0    
+    syngen = False
+    lambda_syngen = 0.5 if syngen else 0.0
     ours = True
-
-    reverse = False
-    start_index = 34
-    number = '1'
-    if start_index == 0:
-        if not reverse:
-            gpu = 3
-        else:
-            gpu = 2
-    else:
-        if not reverse:
-            gpu = 1
-        else:
-            gpu = 0
-
-    lambda_ours = 0.5 if ours else 0.0
     dist = 'cos'
-    dataset = data['animals']
+    args.step_size = 20.0
 
+
+    
+    
+    # name = 'animals_objects'
+    # dataset = data[name]
+
+    #read destination.csv
+    # df = pd.read_csv('2dvmp.csv')
+    # dataset = df['prompt'].tolist()
+
+    dataset = abc2
     
 
 
-    save_parameters_to_txt(seed_number, dataset, reverse, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, args.step_size , file_name=f"{args.output_directory}/{number}/parameters.txt")
+    lambda_ours = 0.5 if ours else 0.0
+
+    # dataset = ['A boy in a red shirt with a helmet and yellow bat', 'a brown bear with red hat and scarf and a small stuffed bear', 'A man with glasses, earrings, and a red shirt with blue tie.', 'A red kitty cat sitting on a floor near a dish and a white towel.', \
+    #            'A woman with short gray hair and square glasses wears a tie and a black shirt.', 'Two tan boats on dock next to large white building.', 'Horses grazing in a lush white pasture behind a green fence.']
+
+
+
+    base_number = f'abc2/lambda{lambda_ours}'
+    
+    number = f'{base_number}'
+
+    mode = 0
+
+
+
+    l = len(dataset)//2
+    seed_number = 12345
+    torch.manual_seed(seed_number)
+    seeds = torch.randint(0, 100000, (64,))[:2]
+
+
+    
+
+    if mode == 0:
+        reverse = False
+        start_index = 0
+        gpu = 0
+    elif mode == 1:
+        reverse = True
+        start_index = -1
+        gpu = 3
+    elif mode == 2:
+        reverse = False
+        start_index = l 
+        gpu = 1
+    elif mode == 3:
+        reverse = True
+        start_index = l-1 
+        gpu = 3
+    
+
+
+
+    save_parameters_to_txt(seed_number, dataset, reverse, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, args.step_size , lambda_ours, file_name=f"{args.output_directory}/{number}/parameters.txt")
 
     
     

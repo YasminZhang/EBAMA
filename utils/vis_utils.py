@@ -66,7 +66,12 @@ def get_image_grid(images: List[Image.Image]) -> Image:
     cols = int(math.ceil(math.sqrt(num_images)))
     rows = int(math.ceil(num_images / cols))
     width, height = images[0].size
-    grid_image = Image.new('RGB', (cols * width, rows * height))
+    # add gap between images
+    width += 10
+    height += 10
+    # make the initial grid image white
+    grid_image = Image.new('RGB', (cols * width, rows * height), (255, 255, 255))
+    #grid_image = Image.new('RGB', (cols * width, rows * height))
     for i, img in enumerate(images):
         x = i % cols
         y = i // cols

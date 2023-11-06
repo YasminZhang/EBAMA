@@ -9,9 +9,7 @@ from eval_data import data
 from data_CC import CC
 from tqdm import tqdm
 import utils.vis_utils as vis_utils
-
 from data_abc import abc
-from data_abc2 import abc2
 
 import pandas as pd
 
@@ -24,7 +22,7 @@ def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu,
     pipe.lambda_sum_attn = lambda_sum_attn
     pipe.dist = dist
     pipe.model2 = None
-    pipe.skip = True
+    pipe.skip = False
     pipe.ours = False
     for prompt in tqdm(prompts):
         images = []
@@ -115,7 +113,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--output_directory',
         type=str,
-        default='./projects/Syntax-Guided-Generation/output'
+        default='./projects/Syntax-Guided-Generation/output/stable-diffusion'
     )
 
     parser.add_argument(
@@ -144,7 +142,7 @@ if __name__ == "__main__":
 
     seed_number = 12345
     torch.manual_seed(12345)
-    seeds = torch.randint(0, 100000, (16,))[:2]
+    seeds = torch.randint(0, 100000, (64,))
 
 
     
@@ -157,18 +155,14 @@ if __name__ == "__main__":
 
 
     reverse = False
-    gpu = 3
-
-    # dataset = ['A boy in a red shirt with a helmet and yellow bat', 'a brown bear with red hat and scarf and a small stuffed bear', 'A man with glasses, earrings, and a red shirt with blue tie.', 'A red kitty cat sitting on a floor near a dish and a white towel.', \
-    #            'A woman with short gray hair and square glasses wears a tie and a black shirt.', 'Two tan boats on dock next to large white building.', 'Horses grazing in a lush white pasture behind a green fence.']
+    gpu = 2
 
 
-    # dataset = pd.read_csv('2dvmp.csv')['prompt'].tolist()
-    # number = 'dvmp2'
-
-    dataset = abc2
-    number = 'abc2'
-   
+    # df = pd.read_csv('destination.csv')
+    # dataset = df['prompt'].tolist()
+    number = 'pipeline_sd'
+    dataset = ['a purple crown and a blue suitcase']
+    seeds = seeds[[2,3,4,9]]
 
 
 

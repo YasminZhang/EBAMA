@@ -556,6 +556,16 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
     ) -> torch.Tensor:
         attn_map_idx_to_wp = get_attention_map_index_to_wordpiece(self.tokenizer, prompt)
 
+        if self.print_volumn:
+            attention_maps_softmax = torch.nn.functional.softmax(torch.stack(attention_maps[1:]), dim=0)
+            # store the maximum value of each token
+            max_per_token = attention_maps_softmax.max(dim=-1)[0].max(-1)[0].detach().cpu().numpy()
+            sum_volumn = attention_maps_softmax.sum(dim=[1,2]).detach().cpu().numpy() / attention_maps_softmax.sum().detach().cpu().numpy()
+            self.max_attn_value.append(max_per_token)
+            self.sum_volumn.append(sum_volumn)
+            self.labels = attn_map_idx_to_wp
+            #print(f"max attn value: {max_per_token}")
+
         if self.ours:
             loss_s = self._attribution_loss_ours(attention_maps, prompt, attn_map_idx_to_wp)
             loss_t = self._excitation_loss_ours(attention_maps, prompt, attn_map_idx_to_wp)
@@ -564,11 +574,8 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
             return loss
         
 
-        if self.print_volumn:
-            attention_maps_softmax = torch.nn.functional.softmax(torch.stack(attention_maps[1:]), dim=0)
-            
-            print(f"token {attn_map_idx_to_wp[3]}: {attention_maps_softmax[3-1].sum()/256:0.4f}, {attention_maps_softmax[3-1].max():0.4f} \
-                   token {attn_map_idx_to_wp[7]}: {attention_maps_softmax[7-1].sum()/256:0.4f}, {attention_maps_softmax[7-1].max():0.4f}")
+
+        
         loss = self._attribution_loss(attention_maps, prompt, attn_map_idx_to_wp)
 
         if self.excite:
@@ -658,6 +665,18 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         negative_loss = sum(negative_loss)
 
         return positive_loss, negative_loss
+    
+    def _align_indices_ours(self, prompt, spacy_pairs):
+        wordpieces2indices = get_indices(self.tokenizer, prompt)
+        paired_indices = []
+        for pair in spacy_pairs:
+            noun = pair[0]
+            paired_indices.append(wordpieces2indices[noun])
+
+        return paired_indices
+
+
+
 
     def _align_indices(self, prompt, spacy_pairs):
         wordpieces2indices = get_indices(self.tokenizer, prompt)
@@ -745,18 +764,23 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         nouns = extract_noun_indices(self.doc)
         noun_indices = self._align_indices(prompt, [[noun] for noun in nouns])
 
+        # use for loop
+        for noun in noun_indices:
+            if noun:
+                if noun[0] not in nouns_already_extracted:
+                    paired_indices += [[None, noun[0]]]
 
-        paired_indices += [[None, noun[0]] for noun in noun_indices if noun[0] not in nouns_already_extracted]
-        #print('paired_indices', paired_indices)
 
 
         return paired_indices
 
 def extract_noun_indices(doc):
     noun_indices = []
-    for token in doc:
+    #nouns_indices = []
+    for k, token in enumerate(doc):
         if token.pos_ == "NOUN" or token.pos_ == "PROPN":
             noun_indices.append(token)
+            #nouns_indices.append([k])
     return noun_indices
 
 def _get_attention_maps_list(
