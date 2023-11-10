@@ -133,7 +133,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--model_path',
         type=str,
-        default='CompVis/stable-diffusion-v1-4',
+        default='runwayml/stable-diffusion-v1-5', #CompVis/stable-diffusion-v1-4
         help='The path to the model (this will download the model if the path doesn\'t exist)'
     )
 
@@ -165,7 +165,7 @@ if __name__ == "__main__":
     lambda_syngen = 0.5 if syngen else 0.0
     ours = True
     dist = 'cos'
-    args.step_size = 20.0
+    args.step_size = 20
 
 
     
@@ -174,35 +174,63 @@ if __name__ == "__main__":
     # dataset = data[name]
 
     #read destination.csv
-    # df = pd.read_csv('2dvmp.csv')
+    # df = pd.read_csv('dvmp1.csv')
     # dataset = df['prompt'].tolist()
 
-    dataset = abc2
+    # dataset = abc2
     
 
 
-    lambda_ours = 0.5 if ours else 0.0
+    lambda_ours = 0.75 if ours else 0.0
 
     # dataset = ['A boy in a red shirt with a helmet and yellow bat', 'a brown bear with red hat and scarf and a small stuffed bear', 'A man with glasses, earrings, and a red shirt with blue tie.', 'A red kitty cat sitting on a floor near a dish and a white towel.', \
     #            'A woman with short gray hair and square glasses wears a tie and a black shirt.', 'Two tan boats on dock next to large white building.', 'Horses grazing in a lush white pasture behind a green fence.']
 
+    from paths import BIG_PROMPTS
+    dataset = BIG_PROMPTS['dvmp']
+    base_number = f'user/lambda{lambda_ours}'
 
 
-    base_number = f'abc2/lambda{lambda_ours}'
     
-    number = f'{base_number}'
+
+
+    
 
     mode = 0
 
+
+    # if dataset_name == 'dvmp1':
+    #     dataset = pd.read_csv('dvmp1.csv')['prompt'].tolist()
+    #     base_number = f'dvmp1_{args.step_size}/lambda{lambda_ours}'
+    # elif dataset_name == 'abc2':
+    #     dataset = abc2
+    #     base_number = f'abc2/lambda{lambda_ours}'
+    # elif dataset_name == 'abc':
+    #     dataset = abc
+    #     base_number = f'abc/lambda{lambda_ours}'
+    # elif dataset_name == 'dvmp2':
+    #     dataset = pd.read_csv('2dvmp.csv')['prompt'].tolist()
+    #     base_number = f'dvmp2_better/lambda{lambda_ours}'
+    # elif dataset_name == 'dvmp3':
+    #     dataset = pd.read_csv('dvmp3.csv')['prompt'].tolist()
+    #     base_number = f'dvmp3/lambda{lambda_ours}'
+    # else:
+    #     raise ValueError('dataset_name not found')
+    
+  
+    
+   
+    number = f'{base_number}'
 
 
     l = len(dataset)//2
     seed_number = 12345
     torch.manual_seed(seed_number)
-    seeds = torch.randint(0, 100000, (64,))[:2]
+    seeds = torch.randint(0, 100000, (64,))[[1,2]]
 
 
-    
+   
+
 
     if mode == 0:
         reverse = False
@@ -210,8 +238,8 @@ if __name__ == "__main__":
         gpu = 0
     elif mode == 1:
         reverse = True
-        start_index = -1
-        gpu = 3
+        start_index = -66
+        gpu = 1
     elif mode == 2:
         reverse = False
         start_index = l 
