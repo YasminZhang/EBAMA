@@ -228,7 +228,7 @@ def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu,
     pipe.skip = skip
 
     for kk in range(len(prompts)):
-        for cross in [.2, .4, .6, .8]:
+        for cross in [.8]:
             if model2:
                 ldm_stable = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4", use_auth_token='S').to(f'cuda:{gpu}')
                 extra_set_kwargs = {}
@@ -337,7 +337,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--output_directory',
         type=str,
-        default='./output4'
+        default='./output5'
     )
 
     parser.add_argument(

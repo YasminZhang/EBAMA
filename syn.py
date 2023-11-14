@@ -12,6 +12,7 @@ import utils.vis_utils as vis_utils
 
 from data_abc import abc
 from data_abc2 import abc2
+from prompt_name import SEEDS, PROMPTS
 
 import pandas as pd
 
@@ -144,7 +145,7 @@ if __name__ == "__main__":
 
     seed_number = 12345
     torch.manual_seed(12345)
-    seeds = torch.randint(0, 100000, (16,))[:2]
+    seeds = torch.randint(0, 100000, (64,))[SEEDS]
 
 
     
@@ -157,18 +158,33 @@ if __name__ == "__main__":
 
 
     reverse = False
-    gpu = 3
+    gpu = 1
 
     # dataset = ['A boy in a red shirt with a helmet and yellow bat', 'a brown bear with red hat and scarf and a small stuffed bear', 'A man with glasses, earrings, and a red shirt with blue tie.', 'A red kitty cat sitting on a floor near a dish and a white towel.', \
     #            'A woman with short gray hair and square glasses wears a tie and a black shirt.', 'Two tan boats on dock next to large white building.', 'Horses grazing in a lush white pasture behind a green fence.']
 
 
-    # dataset = pd.read_csv('2dvmp.csv')['prompt'].tolist()
-    # number = 'dvmp2'
-
-    dataset = abc2
-    number = 'abc2'
-   
+    dataset_name = 'sentence'
+    if dataset_name == 'dvmp1':
+        dataset = pd.read_csv('dvmp1.csv')['prompt'].tolist()
+        number = 'dvmp1'
+    elif dataset_name == 'abc2':
+        dataset = abc2
+        number = 'abc2'
+    elif dataset_name == 'abc':
+        dataset = abc
+        number = 'abc'
+    elif dataset_name == 'dvmp2':
+        dataset = pd.read_csv('2dvmp.csv')['prompt'].tolist()
+        number = 'dvmp2'
+    elif dataset_name == 'dvmp3':
+        dataset = pd.read_csv('dvmp3.csv')['prompt'].tolist()
+        number = 'dvmp3'
+    elif dataset_name == 'sentence':
+        dataset = PROMPTS
+        number = 'syn_dvmp_sample'
+    else:
+        raise ValueError('dataset_name not found')
 
 
 
@@ -177,9 +193,19 @@ if __name__ == "__main__":
     save_parameters_to_txt(seed_number, dataset, reverse, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, args.step_size , file_name=f"{args.output_directory}/{number}/parameters.txt")
 
 
+    import time 
+    import datetime
+    start = time.time()
+    print(f"Start time: {datetime.datetime.now()}")
+
     main(dataset[::-1 if reverse else 1], seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist)
 
-
+    # record end time
+    end = time.time()
+    # print time difference change it to readable
+    print(f"Runtime of the program is {end - start}")
+    # make the time readable
+    print(f"Runtime of the program is {datetime.timedelta(seconds=end-start)}")   
     # from PARTI dataset
     # dataset = pd.read_csv('destination.csv')
     # dataset = dataset['prompt'].tolist()

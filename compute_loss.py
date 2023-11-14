@@ -95,11 +95,14 @@ def calculate_positive_loss(attention_maps, modifier, noun, dist='kl'):
         raise NotImplementedError
 
     if isinstance(src_indices, list) and isinstance(dest_indices, list):
-        wp_pos_loss = [
-            func(attention_maps[s], attention_maps[d])
-            for (s, d) in itertools.product(src_indices, dest_indices)
-        ]
-        positive_loss = max(wp_pos_loss)
+        loss_for_s = []
+        for s in src_indices:
+            temp = []
+            for d in dest_indices:
+                wp_pos_loss = func(attention_maps[s], attention_maps[d])
+                temp.append(wp_pos_loss)
+            loss_for_s.append(max(temp))
+        positive_loss = sum(loss_for_s) if dist == 'cos' else max(loss_for_s)
     elif isinstance(dest_indices, list):
         wp_pos_loss = [
             func(attention_maps[src_indices], attention_maps[d])
@@ -111,7 +114,7 @@ def calculate_positive_loss(attention_maps, modifier, noun, dist='kl'):
             func(attention_maps[s], attention_maps[dest_indices])
             for s in src_indices
         ]
-        positive_loss = max(wp_pos_loss)
+        positive_loss = sum(wp_pos_loss) if dist == 'cos' else max(wp_pos_loss) # should be sum?
     else:
         positive_loss = func(
             attention_maps[src_indices], attention_maps[dest_indices]

@@ -10,6 +10,7 @@ from data_CC import CC
 from tqdm import tqdm
 import utils.vis_utils as vis_utils
 from data_abc import abc
+from prompt_name import SEEDS, PROMPTS
 
 import pandas as pd
 
@@ -142,7 +143,7 @@ if __name__ == "__main__":
 
     seed_number = 12345
     torch.manual_seed(12345)
-    seeds = torch.randint(0, 100000, (64,))
+    seeds = torch.randint(0, 100000, (64,))[SEEDS]
 
 
     
@@ -155,24 +156,33 @@ if __name__ == "__main__":
 
 
     reverse = False
-    gpu = 2
+    gpu = 1
 
 
     # df = pd.read_csv('destination.csv')
     # dataset = df['prompt'].tolist()
-    number = 'pipeline_sd'
-    dataset = ['a purple crown and a blue suitcase']
-    seeds = seeds[[2,3,4,9]]
-
+    number = 'pipeline_sd/dvmp_samples'
+    dataset = PROMPTS
 
 
 
 
     save_parameters_to_txt(seed_number, dataset, reverse, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, args.step_size , file_name=f"{args.output_directory}/{number}/parameters.txt")
 
+    # record start time
+    import time 
+    import datetime
+    start = time.time()
+    print(f"Start time: {datetime.datetime.now()}")
 
     main(dataset[::-1 if reverse else 1], seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist)
 
+    # record end time
+    end = time.time()
+    # print time difference change it to readable
+    print(f"Runtime of the program is {end - start}")
+    # make the time readable
+    print(f"Runtime of the program is {datetime.timedelta(seconds=end-start)}")   
 
     # from PARTI dataset
     # dataset = pd.read_csv('destination.csv')

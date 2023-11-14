@@ -120,7 +120,7 @@ def dvmp_dataset_creation(num_samples, dest_path, max_num_phrases=3):
     prompts_num_phrases_per_prompt = []
 
     while len(prompts) < num_samples:
-        num_phrases = random.choice([i for i in range(1, max_num_phrases + 1)])
+        num_phrases = 3
         prompt, num_modifiers = generate_prompt(num_phrases)
         if prompt not in prompts:
             prompts_num_phrases_per_prompt.append(num_phrases)
@@ -162,7 +162,7 @@ def generate_prompt_animal_and_object(num_phrases=2):
     ]
 
     colors = [
-        "red",  "yellow", "green", "blue", "purple", "pink", "brown", "gray", "black",
+        "red",  "yellow", "orange", "green", "blue", "purple", "pink", "brown", "gray", "black",
         "white", "beige", "teal"]
 
     animal_modifiers = ["furry", "baby", "spotted", "sleepy"]
@@ -221,11 +221,14 @@ def dvmp_2_subject_creation(num_samples, dest_path):
     if dest_path:
         df.to_csv(dest_path, index=False)
 
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create a DVMP dataset.')
     parser.add_argument('--num_samples', type=int, default=200, help='Number of samples to generate.')
     parser.add_argument('--dest_path', type=str, default='destination.csv', help='Destination CSV file path.')
     args = parser.parse_args()
 
-    # dvmp_dataset_creation(args.num_samples, args.dest_path)
-    dvmp_2_subject_creation(args.num_samples, args.dest_path)
+    dvmp_dataset_creation(args.num_samples, args.dest_path, max_num_phrases=3)
+    # dvmp_2_subject_creation(args.num_samples, args.dest_path)
+    # dvmp_1_subject_creation(args.num_samples, args.dest_path)

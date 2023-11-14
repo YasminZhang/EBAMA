@@ -752,14 +752,19 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
 
 
         nouns_already_extracted = []
+        attributes_already_extracted = []
         # nouns already extracted
         for indices in paired_indices:
             temp = indices[-1]
+            temp1 = indices[:-1]
             if isinstance(temp, list):
                 nouns_already_extracted += temp
             else:
                 nouns_already_extracted.append(temp)
-
+            if isinstance(temp1, list):
+                attributes_already_extracted += temp1
+            else:
+                attributes_already_extracted.append(temp1)
         # extract nouns
         nouns = extract_noun_indices(self.doc)
         noun_indices = self._align_indices(prompt, [[noun] for noun in nouns])
@@ -767,8 +772,10 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         # use for loop
         for noun in noun_indices:
             if noun:
-                if noun[0] not in nouns_already_extracted:
+                if noun[0] not in nouns_already_extracted and noun[0] not in attributes_already_extracted:
                     paired_indices += [[None, noun[0]]]
+
+        #print(f"Final pairs collected: {paired_indices}")
 
 
 
