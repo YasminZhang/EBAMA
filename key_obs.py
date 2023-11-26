@@ -12,7 +12,7 @@ import utils.vis_utils as vis_utils
 
 import pandas as pd
 
-def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours):
+def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours, skip, sd):
     pipe = load_model(model_path, gpu)
     pipe.print_volumn = print_volumn
     pipe.excite = excite
@@ -23,7 +23,8 @@ def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu,
     pipe.model2 = None
     pipe.ours = ours
     pipe.lambda_ours = lambda_ours
-    pipe.skip = True
+    pipe.skip = skip
+    pipe.sd = sd
     
     if print_volumn:
         pipe.max_attn_value = []
@@ -38,30 +39,36 @@ def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu,
             images.append(image)
 
             if print_volumn:
+                
                 df = pd.DataFrame(pipe.max_attn_value)
                 df.to_csv(output_directory+f'/{number}/'+prompt+'/max_attn_value.csv', index=False)
                 # make a plot, and save it
                 import matplotlib.pyplot as plt
                 # only plot the first 7
-                df = df.iloc[:, :7]
+                df = df.iloc[:, [3,8,12]]
                 plt.figure()
                 plt.plot(df)
                 # add legend using pipe.labels
-                plt.legend([pipe.labels[i] for i in range(1,8)])
+                plt.legend('camera dog tomato'.split(' '),loc='lower left', fontsize=20)
+                plt.xlabel('Step', fontsize=15)
                 plt.savefig(output_directory+f'/{number}/'+prompt+'/max_attn_value.png')
+                plt.close()
 
                 # plot the sum volumn
-                df = pd.DataFrame(pipe.sum_volumn)
-                df.to_csv(output_directory+f'/{number}/'+prompt+'/sum_volumn.csv', index=False)
-                # make a plot, and save it
-                import matplotlib.pyplot as plt
-                # only plot the first 7
-                df = df.iloc[:, :7]
-                plt.figure()
-                plt.plot(df)
-                # add legend using pipe.labels
-                plt.legend([pipe.labels[i] for i in range(1,8)])
-                plt.savefig(output_directory+f'/{number}/'+prompt+'/sum_volumn.png')
+                # df = pd.DataFrame(pipe.sum_volumn)
+                # df.to_csv(output_directory+f'/{number}/'+prompt+'/sum_volumn.csv', index=False)
+                # # make a plot, and save it
+                # import matplotlib.pyplot as plt
+                # # only plot the first 7
+                # df = df.iloc[:, [2,6]]
+                # plt.figure()
+                # plt.plot(df)
+                # # add legend using pipe.labels
+                # plt.legend('crown suitcase'.split(' '),loc='lower left')
+                # plt.savefig(output_directory+f'/{number}/'+prompt+'/sum_volumn.png')
+
+                vis_utils.show_cross_attention(prompt, pipe.attention_store, pipe.tokenizer, [7,9], attn_res, ['up', 'mid', 'down'], select=0, orig_image=image, save_path=output_directory+f'/{number}/'+prompt+'/cross_attention.png')
+
             
                         
         joined_image = vis_utils.get_image_grid(images)
@@ -181,53 +188,66 @@ if __name__ == "__main__":
     lambda_excite = 0.5 if excite else 0.0    
     syngen = False
     lambda_syngen = 0.5 if syngen else 0.0
-    ours = True
     dist = 'cos'
     args.step_size = 20.0
     reverse = False
 
-
-    lambda_ours = 0.5 if ours else 0.0
-    
-    name = 'animals'
-    dataset = data[name]
-    l = len(dataset)//2
-
-    mode = 'sg'
-
-    base_number = f'key_obs/{mode}'
-    
-    number = f'{base_number}'
-
-
-    seed_number = 12345
-    torch.manual_seed(seed_number)
-    seeds = [torch.randint(0, 100000, (64,))[3]]
-
-    dataset = ['a purple crown and a blue suitcase']
-
-    
-
-    if mode == 'ours':
-        ours = True
-        lambda_ours = 0.5
-        dist = 'cos'
-    if mode == 'sg':
-        dist = 'kl'
-        ours = False
-        lambda_ours = 0.0
-
+ 
     
 
 
-
-    gpu = 2
     
 
+    for mode in ['ours','sd', 'sg']:
+
+        # mode = 'ours'
+
+        base_number = f'key_obs/add/{mode}/'
+        
+        number = f'{base_number}'
 
 
-    save_parameters_to_txt(seed_number, dataset, reverse, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, args.step_size , lambda_ours, file_name=f"{args.output_directory}/{number}/parameters.txt")
+        seed_number = 12345
+        torch.manual_seed(seed_number)
+        seeds = torch.randint(0, 100000, (64,))[[0,3]]
+         
+        print(seeds)
+        
+
+        dataset = ['a blue zebra and a spotted crown']
 
     
-    
-    main(dataset, seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours)
+
+        if mode == 'ours':
+            ours = True
+            lambda_ours = 0.5
+            dist = 'cos'
+            skip = True
+            sd = False
+        if mode == 'sg':
+            dist = 'kl'
+            ours = False
+            skip = True
+            sd = False
+            lambda_ours = 0.0
+        if mode == 'sd':
+            ours = False
+            lambda_ours = 0.0
+            skip = True
+            sd = True
+
+        
+
+
+
+        gpu = 1
+        
+
+
+
+        save_parameters_to_txt(seed_number, dataset, reverse, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, args.step_size , lambda_ours, file_name=f"{args.output_directory}/{number}/parameters.txt")
+
+        
+        
+        main(dataset, seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours, skip, sd)
+  

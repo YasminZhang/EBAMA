@@ -37,6 +37,9 @@ def view_images(images: Union[np.ndarray, List],
         images = [images]
         num_empty = 0
 
+        # q: what is the range of images?
+        # a: 0-1
+
     empty_images = np.ones(images[0].shape, dtype=np.uint8) * 255
     images = [image.astype(np.uint8) for image in images] + [empty_images] * num_empty
     num_items = len(images)
@@ -50,8 +53,8 @@ def view_images(images: Union[np.ndarray, List],
         for j in range(num_cols):
             image_[i * (h + offset): i * (h + offset) + h:, j * (w + offset): j * (w + offset) + w] = images[
                 i * num_cols + j]
-
-    pil_img = Image.fromarray(image_)
+ 
+    pil_img = Image.fromarray(image_,  )
     if save_path is not None:
         pil_img.save(save_path)
     if display_image:
@@ -697,9 +700,11 @@ def aggregate_attention(attention_store: AttentionStore,
     """ Aggregates the attention across the different layers and heads at the specified resolution. """
     out = []
     attention_maps = attention_store.get_average_attention()
-    num_pixels = res ** 2
+    num_pixels = res  ** 2
+ 
     for location in from_where:
-        for item in attention_maps[f"{location}_{'cross' if is_cross else 'self'}"]:
+        for item in attention_maps[f"{location}"]:
+           
             if item.shape[1] == num_pixels:
                 cross_maps = item.reshape(1, -1, res, res, item.shape[-1])[select]
                 out.append(cross_maps)

@@ -161,7 +161,7 @@ if __name__ == "__main__":
 
     # df = pd.read_csv('destination.csv')
     # dataset = df['prompt'].tolist()
-    number = 'pipeline_sd/dvmp_samples'
+    number = 'pipeline_sd/'
     dataset = PROMPTS
 
 

@@ -310,17 +310,19 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
             for i, t in enumerate(timesteps):
                 # NEW
                 if self.skip:
-                    if i < 25:
-                        latents = self._syngen_step(
-                            latents,
-                            text_embeddings,
-                            t,
-                            i,
-                            syngen_step_size,
-                            cross_attention_kwargs,
-                            prompt,
-                            max_iter_to_alter=25,
-                        )
+                    self.i = i
+                    
+                    
+                    latents = self._syngen_step(
+                        latents,
+                        text_embeddings,
+                        t,
+                        i,
+                        syngen_step_size,
+                        cross_attention_kwargs,
+                        prompt,
+                        max_iter_to_alter=25,
+                    )
 
         
                 # expand the latents if we are doing classifier free guidance
@@ -566,6 +568,13 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
             self.labels = attn_map_idx_to_wp
             #print(f"max attn value: {max_per_token}")
 
+        if self.i >= 25:
+            return 0
+        
+        if self.sd:
+            return 0
+ 
+
         if self.ours:
             loss_s = self._attribution_loss_ours(attention_maps, prompt, attn_map_idx_to_wp)
             loss_t = self._excitation_loss_ours(attention_maps, prompt, attn_map_idx_to_wp)
@@ -776,6 +785,9 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
                     paired_indices += [[None, noun[0]]]
 
         #print(f"Final pairs collected: {paired_indices}")
+         
+
+
 
 
 

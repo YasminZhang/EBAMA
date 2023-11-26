@@ -153,8 +153,11 @@ if __name__ == "__main__":
 
 
     reverse = False
-    gpu = 2
-    number = 'syn_excite_damc'
+    gpu = 1
+    number = 'syn_excite_parti'
+    dataset = pd.read_csv('/home/yasmin/projects/Syntax-Guided-Generation/partidata/fine_grained_detail.csv')
+    dataset = dataset['prompt'].tolist()
+    dataset = ['a lion with a crown']
 
 
 
@@ -164,8 +167,7 @@ if __name__ == "__main__":
 
 
 
-    dataset = pd.read_csv('destination.csv')
-    dataset = dataset['prompt'].tolist()
+    
     
 
     main(dataset[::-1 if reverse else 1], seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist)

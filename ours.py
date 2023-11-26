@@ -9,13 +9,14 @@ from eval_data import data
 from data_CC import CC
 from tqdm import tqdm
 import utils.vis_utils as vis_utils
+import utils.ptp_utils as ptp_utils
 from data_abc import abc
 from data_abc2 import abc2
 from prompt_name import SEEDS, PROMPTS
 
 import pandas as pd
 
-def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours):
+def main(prompts, seeds, output_directory, model_path, step_sizes, attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours):
     pipe = load_model(model_path, gpu)
     pipe.print_volumn = print_volumn
     pipe.excite = excite
@@ -27,27 +28,32 @@ def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu,
     pipe.ours = ours
     pipe.lambda_ours = lambda_ours
     pipe.skip = True
+    pipe.sd = False
     if print_volumn:
         pipe.max_attn_value = []
+
+    
     for prompt in tqdm(prompts):
         images = []
-        for seed in seeds:
-            print(f'Running on: "{prompt}"')
-            seed = seed.item()
-            image = generate(pipe, prompt, seed, step_size, attn_res)
-            save_image(image, prompt, seed, output_directory+f'/{number}/'+prompt)
-            images.append(image)
+        for step_size in tqdm(step_sizes):
+            for seed in seeds:
+                print(f'Running on: "{prompt}"')
+                seed = seed.item()
+                image = generate(pipe, prompt, seed, step_size, attn_res)
+                save_image(image, prompt, seed, output_directory+f'/{number}/'+prompt+'/step_size_'+str(step_size))
+                images.append(image)
 
-            if print_volumn:
-                df = pd.DataFrame(pipe.max_attn_value)
-                df.to_csv(output_directory+f'/{number}/'+prompt+'/max_attn_value.csv', index=False)
-                # make a plot, and save it
-                import matplotlib.pyplot as plt
-                plt.plot(df)
-                plt.savefig(output_directory+f'/{number}/'+prompt+'/max_attn_value.png')
+                if print_volumn:
+                    df = pd.DataFrame(pipe.max_attn_value)
+                    df.to_csv(output_directory+f'/{number}/'+prompt+'/max_attn_value.csv', index=False)
+                    # make a plot, and save it
+                    import matplotlib.pyplot as plt
+                    plt.plot(df)
+                    plt.savefig(output_directory+f'/{number}/'+prompt+'/max_attn_value.png')
             
-                        
+                    
         joined_image = vis_utils.get_image_grid(images)
+        
         joined_image.save(output_directory+f'/{number}/'+f'{prompt}.png')
 
 
@@ -166,8 +172,9 @@ if __name__ == "__main__":
     lambda_syngen = 0.5 if syngen else 0.0
     ours = True
     dist = 'cos'
-    args.step_size = 20
 
+
+    args.step_size  = [20]
 
     
     
@@ -182,7 +189,7 @@ if __name__ == "__main__":
     
 
 
-    lambda_ours = 1.0 if ours else 0.0
+    lambda_ours = 0.5 if ours else 0.0
 
     # dataset = ['A boy in a red shirt with a helmet and yellow bat', 'a brown bear with red hat and scarf and a small stuffed bear', 'A man with glasses, earrings, and a red shirt with blue tie.', 'A red kitty cat sitting on a floor near a dish and a white towel.', \
     #            'A woman with short gray hair and square glasses wears a tie and a black shirt.', 'Two tan boats on dock next to large white building.', 'Horses grazing in a lush white pasture behind a green fence.']
@@ -192,7 +199,7 @@ if __name__ == "__main__":
     # base_number = f'user/lambda{lambda_ours}'
 
     dataset = PROMPTS
-    number = f'dvmp_sample/lambda{lambda_ours}'
+    
 
     
 
@@ -229,7 +236,13 @@ if __name__ == "__main__":
     l = len(dataset)//2
     seed_number = 12345
     torch.manual_seed(seed_number)
-    seeds = torch.randint(0, 100000, (64,))[SEEDS]
+    #seeds = torch.randint(0, 100000, (64,))[SEEDS]
+
+
+    seeds = torch.randint(0, 100000, (64,))[[14]]
+       
+
+    dataset = ['a purple modern camera and a spotted baby dog and a sliced tomato']
 
 
    
@@ -238,7 +251,7 @@ if __name__ == "__main__":
     if mode == 0:
         reverse = False
         start_index = 0
-        gpu = 1
+        gpu = 0
     elif mode == 1:
         reverse = True
         start_index = -1
@@ -253,6 +266,11 @@ if __name__ == "__main__":
         gpu = 3
     
 
+      
+    
+
+    number = f'test'
+
 
 
     save_parameters_to_txt(seed_number, dataset, reverse, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, args.step_size , lambda_ours, file_name=f"{args.output_directory}/{number}/parameters.txt")
@@ -260,4 +278,3 @@ if __name__ == "__main__":
     
     main(dataset[start_index::-1 if reverse else 1], seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours)
 
-    

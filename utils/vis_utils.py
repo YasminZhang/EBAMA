@@ -8,6 +8,39 @@ import torch
 from utils import ptp_utils
 from utils.ptp_utils import AttentionStore, aggregate_attention
 
+def show_cross_attention_gray(prompt: str,
+                              attention_store: AttentionStore,
+                                tokenizer,
+                                indices_to_alter: List[int],
+                                res: int,
+                                from_where: List[str],
+                                select: int = 0,
+                                orig_image=None,
+                                save_path=None):
+    tokens = tokenizer.encode(prompt)
+    decoder = tokenizer.decode
+    attention_maps = aggregate_attention(attention_store, 16, from_where, True, select).detach().cpu()
+    images = []
+
+    # show spatial attention for indices of tokens to strengthen
+    for i in range(len(tokens)):
+        image = attention_maps[:, :, i]
+        if i in indices_to_alter:
+
+             
+            image = 255 * image / image.max()
+            image = image.unsqueeze(-1).expand(*image.shape, 3)
+            image = image.numpy().astype(np.uint8)
+            image = np.array(Image.fromarray(image).resize((256, 256)))
+
+            
+           
+            image = ptp_utils.text_under_image(image, decoder(int(tokens[i])))
+            images.append(Image.fromarray(image))
+ 
+
+    ptp_utils.view_images(np.stack(images, axis=0), save_path=save_path)
+
 
 def show_cross_attention(prompt: str,
                          attention_store: AttentionStore,
@@ -20,7 +53,7 @@ def show_cross_attention(prompt: str,
                          save_path=None):
     tokens = tokenizer.encode(prompt)
     decoder = tokenizer.decode
-    attention_maps = aggregate_attention(attention_store, res, from_where, True, select).detach().cpu()
+    attention_maps = aggregate_attention(attention_store, 16, from_where, True, select).detach().cpu()
     images = []
 
     # show spatial attention for indices of tokens to strengthen
@@ -29,8 +62,8 @@ def show_cross_attention(prompt: str,
         if i in indices_to_alter:
             image = show_image_relevance(image, orig_image)
             image = image.astype(np.uint8)
-            image = np.array(Image.fromarray(image).resize((res ** 2, res ** 2)))
-            image = ptp_utils.text_under_image(image, decoder(int(tokens[i])))
+            image = np.array(Image.fromarray(image).resize((16 ** 2, 16 ** 2)))
+            #image = ptp_utils.text_under_image(image, decoder(int(tokens[i])))
             images.append(image)
 
     ptp_utils.view_images(np.stack(images, axis=0), save_path=save_path)
