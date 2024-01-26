@@ -201,7 +201,10 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         if parsed_prompt:
           self.doc = parsed_prompt
         else:
-          self.doc = self.parser(prompt)
+            if self.more_words is not None:
+                self.doc = self.parser(prompt+ self.more_words)
+            else:
+                self.doc = self.parser(prompt)
         # 0. Default height and width to unet
         height = height or self.unet.config.sample_size * self.vae_scale_factor
         width = width or self.unet.config.sample_size * self.vae_scale_factor
@@ -235,6 +238,29 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         text_encoder_lora_scale = (
             cross_attention_kwargs.get("scale", None) if cross_attention_kwargs is not None else None
         )
+
+        if self.more_words is not None:
+            negative_prompt_embeds_m,  prompt_embeds_m = self._encode_prompt(
+                prompt+self.more_words,
+                device,
+                num_images_per_prompt,
+                do_classifier_free_guidance,
+                negative_prompt,
+                prompt_embeds=prompt_embeds,
+                negative_prompt_embeds=negative_prompt_embeds,
+                lora_scale=text_encoder_lora_scale,
+            )
+            if do_classifier_free_guidance:
+                prompt_embeds_m = torch.stack([negative_prompt_embeds_m, prompt_embeds_m], dim=0)
+            
+            text_embeddings_m = [prompt_embeds_m[1][None,...]]
+
+
+
+
+
+
+
         negative_prompt_embeds,  prompt_embeds = self._encode_prompt(
             prompt,
             device,
@@ -284,6 +310,9 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         # )
         text_embeddings = [prompt_embeds[1][None,...]]
 
+
+
+
         if self.model2 is not None:
             negative_prompt_embeds2,  prompt_embeds2 = self._encode_prompt(
             self.prompt2,
@@ -315,7 +344,7 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
                     
                     latents = self._syngen_step(
                         latents,
-                        text_embeddings,
+                        text_embeddings if self.more_words is None else text_embeddings_m,
                         t,
                         i,
                         syngen_step_size,

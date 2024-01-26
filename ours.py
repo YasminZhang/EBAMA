@@ -16,7 +16,7 @@ from prompt_name import SEEDS, PROMPTS
 
 import pandas as pd
 
-def main(prompts, seeds, output_directory, model_path, step_sizes, attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours, without_repulsion  ):
+def main(prompts, seeds, output_directory, model_path, step_sizes, attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours, without_repulsion , more_words ):
     pipe = load_model(model_path, gpu)
     pipe.print_volumn = print_volumn
     pipe.excite = excite
@@ -30,6 +30,7 @@ def main(prompts, seeds, output_directory, model_path, step_sizes, attn_res, gpu
     pipe.skip = True
     pipe.sd = False
     pipe.without_repulsion = without_repulsion
+    pipe.more_words = more_words
     if print_volumn:
         pipe.max_attn_value = []
 
@@ -135,7 +136,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--output_directory',
         type=str,
-        default='./projects/Syntax-Guided-Generation/ours/without_repulsion_0.5'
+        default='./projects/Syntax-Guided-Generation/ours/more_words'
     )
 
     parser.add_argument(
@@ -199,11 +200,12 @@ if __name__ == "__main__":
     # dataset = BIG_PROMPTS['dvmp']
     # base_number = f'user/lambda{lambda_ours}'
 
-    number = f'objects'
+    number = f'animals'
 
     dataset = data[number]
 
-    args.without_repulsion = True
+    args.without_repulsion = False
+    args.more_words = ' the' # TODO: how to choose the word?
     
 
     
@@ -244,7 +246,7 @@ if __name__ == "__main__":
     #seeds = torch.randint(0, 100000, (64,))[SEEDS]
 
 
-    seeds = torch.randint(0, 100000, (64,))[:10]
+    seeds = torch.randint(0, 100000, (64,))[:1]
        
 
     #dataset = ['a purple modern camera and a spotted baby dog and a sliced tomato']
@@ -252,7 +254,7 @@ if __name__ == "__main__":
 
    
 
-    mode = 3
+    mode = 1
 
     if mode == 0:
         reverse = False
@@ -282,5 +284,5 @@ if __name__ == "__main__":
     save_parameters_to_txt(seed_number, dataset, reverse, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, args.step_size , lambda_ours, file_name=f"{args.output_directory}/{number}/parameters.txt")
 
     
-    main(dataset[start_index::-1 if reverse else 1], seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours, args.without_repulsion)
+    main(dataset[start_index::-1 if reverse else 1], seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours, args.without_repulsion, args.more_words)
 
