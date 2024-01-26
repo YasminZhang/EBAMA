@@ -8,15 +8,15 @@ from syngen_diffusion_pipeline import SynGenDiffusionPipeline
 from eval_data import data
 from data_CC import CC
 from tqdm import tqdm
-import utils.vis_utils as vis_utils
-import utils.ptp_utils as ptp_utils
+# import utils.vis_utils as vis_utils
+# import utils.ptp_utils as ptp_utils
 from data_abc import abc
 from data_abc2 import abc2
 from prompt_name import SEEDS, PROMPTS
 
 import pandas as pd
 
-def main(prompts, seeds, output_directory, model_path, step_sizes, attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours):
+def main(prompts, seeds, output_directory, model_path, step_sizes, attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours, without_repulsion  ):
     pipe = load_model(model_path, gpu)
     pipe.print_volumn = print_volumn
     pipe.excite = excite
@@ -29,6 +29,7 @@ def main(prompts, seeds, output_directory, model_path, step_sizes, attn_res, gpu
     pipe.lambda_ours = lambda_ours
     pipe.skip = True
     pipe.sd = False
+    pipe.without_repulsion = without_repulsion
     if print_volumn:
         pipe.max_attn_value = []
 
@@ -40,7 +41,7 @@ def main(prompts, seeds, output_directory, model_path, step_sizes, attn_res, gpu
                 print(f'Running on: "{prompt}"')
                 seed = seed.item()
                 image = generate(pipe, prompt, seed, step_size, attn_res)
-                save_image(image, prompt, seed, output_directory+f'/{number}/'+prompt+'/step_size_'+str(step_size))
+                save_image(image, prompt, seed, output_directory+f'/{number}/'+prompt)
                 images.append(image)
 
                 if print_volumn:
@@ -52,9 +53,9 @@ def main(prompts, seeds, output_directory, model_path, step_sizes, attn_res, gpu
                     plt.savefig(output_directory+f'/{number}/'+prompt+'/max_attn_value.png')
             
                     
-        joined_image = vis_utils.get_image_grid(images)
+        # joined_image = vis_utils.get_image_grid(images)
         
-        joined_image.save(output_directory+f'/{number}/'+f'{prompt}.png')
+        # joined_image.save(output_directory+f'/{number}/'+f'{prompt}.png')
 
 
 
@@ -134,7 +135,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--output_directory',
         type=str,
-        default='./projects/Syntax-Guided-Generation/ours/'
+        default='./projects/Syntax-Guided-Generation/ours/without_repulsion_0.5'
     )
 
     parser.add_argument(
@@ -198,7 +199,11 @@ if __name__ == "__main__":
     # dataset = BIG_PROMPTS['dvmp']
     # base_number = f'user/lambda{lambda_ours}'
 
-    dataset = PROMPTS
+    number = f'objects'
+
+    dataset = data[number]
+
+    args.without_repulsion = True
     
 
     
@@ -206,7 +211,7 @@ if __name__ == "__main__":
 
     
 
-    mode = 0
+    
 
 
     # if dataset_name == 'dvmp1':
@@ -239,42 +244,43 @@ if __name__ == "__main__":
     #seeds = torch.randint(0, 100000, (64,))[SEEDS]
 
 
-    seeds = torch.randint(0, 100000, (64,))[[14]]
+    seeds = torch.randint(0, 100000, (64,))[:10]
        
 
-    dataset = ['a purple modern camera and a spotted baby dog and a sliced tomato']
+    #dataset = ['a purple modern camera and a spotted baby dog and a sliced tomato']
 
 
    
 
+    mode = 3
 
     if mode == 0:
         reverse = False
         start_index = 0
         gpu = 0
     elif mode == 1:
-        reverse = True
-        start_index = -1
+        reverse = False
+        start_index = 0
         gpu = 1
     elif mode == 2:
         reverse = False
-        start_index = l 
-        gpu = 1
+        start_index = 0
+        gpu = 2
     elif mode == 3:
-        reverse = True
-        start_index = l-1 
+        reverse = False
+        start_index = 0 
         gpu = 3
     
 
       
     
 
-    number = f'test'
+    
 
 
 
     save_parameters_to_txt(seed_number, dataset, reverse, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, args.step_size , lambda_ours, file_name=f"{args.output_directory}/{number}/parameters.txt")
 
     
-    main(dataset[start_index::-1 if reverse else 1], seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours)
+    main(dataset[start_index::-1 if reverse else 1], seeds, args.output_directory, args.model_path, args.step_size, args.attn_res, gpu, number, print_volumn, excite, lambda_excite, sum_attn, lambda_sum_attn, dist, ours, lambda_ours, args.without_repulsion)
 

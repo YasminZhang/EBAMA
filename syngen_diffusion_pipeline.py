@@ -645,7 +645,8 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
                 attn_map_idx_to_wp,
             )
             loss += positive_loss
-            loss += negative_loss
+            if not self.without_repulsion:
+                loss += negative_loss
 
         return loss
 
