@@ -27,13 +27,16 @@ def main(prompts, seeds, output_directory, model_path, step_size, attn_res, gpu,
     pipe.model2 = None
     pipe.skip = True
     pipe.ours = False
+    pipe.more_words = None
+    pipe.sd = False
+    
     for prompt in tqdm(prompts):
         images = []
         for seed in seeds:
             print(f'Running on: "{prompt}"')
             seed = seed.item()
             image = generate(pipe, prompt, seed, step_size, attn_res)
-            save_image(image, prompt, seed, output_directory+f'/{number}/'+prompt)
+            save_image(image, prompt, seed, output_directory+f'/{dist}/{number}/'+prompt)
             images.append(image)
 
         joined_image = vis_utils.get_image_grid(images)
@@ -49,7 +52,7 @@ def load_model(model_path, device=0):
 
 
 def generate(pipe, prompt, seed, step_size, attn_res):
-    device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+    device = torch.device('cuda:1') if torch.cuda.is_available() else torch.device('cpu')
     generator = torch.Generator(device.type).manual_seed(seed)
     result,_ = pipe(prompt=prompt, generator=generator, syngen_step_size=step_size, attn_res=(int(math.sqrt(attn_res)), int(math.sqrt(attn_res))))
     return result['images'][0]
@@ -116,7 +119,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--output_directory',
         type=str,
-        default='./projects/Syntax-Guided-Generation/output'
+        default='./projects/Syntax-Guided-Generation/output/syn+excite'
     )
 
     parser.add_argument(
@@ -145,48 +148,50 @@ if __name__ == "__main__":
 
     seed_number = 12345
     torch.manual_seed(12345)
-    seeds = torch.randint(0, 100000, (64,))[SEEDS]
+    # seeds = torch.randint(0, 100000, (64,))[SEEDS]
+    seeds = torch.randint(0, 100000, (64,))[:4]
 
 
     
     print_volumn = False
-    excite = False
+    excite = True
     lambda_excite = 0.5 if excite else 0.0      
     sum_attn = False
     lambda_sum_attn = 0.5 if sum_attn else 0.0
     dist = 'kl'
 
 
-    reverse = False
-    gpu = 1
-
+    reverse = True
+    gpu = 2
     # dataset = ['A boy in a red shirt with a helmet and yellow bat', 'a brown bear with red hat and scarf and a small stuffed bear', 'A man with glasses, earrings, and a red shirt with blue tie.', 'A red kitty cat sitting on a floor near a dish and a white towel.', \
     #            'A woman with short gray hair and square glasses wears a tie and a black shirt.', 'Two tan boats on dock next to large white building.', 'Horses grazing in a lush white pasture behind a green fence.']
 
 
-    dataset_name = 'sentence'
-    if dataset_name == 'dvmp1':
-        dataset = pd.read_csv('dvmp1.csv')['prompt'].tolist()
-        number = 'dvmp1'
-    elif dataset_name == 'abc2':
-        dataset = abc2
-        number = 'abc2'
-    elif dataset_name == 'abc':
-        dataset = abc
-        number = 'abc'
-    elif dataset_name == 'dvmp2':
-        dataset = pd.read_csv('2dvmp.csv')['prompt'].tolist()
-        number = 'dvmp2'
-    elif dataset_name == 'dvmp3':
-        dataset = pd.read_csv('dvmp3.csv')['prompt'].tolist()
-        number = 'dvmp3'
-    elif dataset_name == 'sentence':
-        dataset = PROMPTS
-        number = 'syn_dvmp_sample'
-    else:
-        raise ValueError('dataset_name not found')
+    # dataset_name = 'sentence'
+    # if dataset_name == 'dvmp1':
+    #     dataset = pd.read_csv('dvmp1.csv')['prompt'].tolist()
+    #     number = 'dvmp1'
+    # elif dataset_name == 'abc2':
+    #     dataset = abc2
+    #     number = 'abc2'
+    # elif dataset_name == 'abc':
+    #     dataset = abc
+    #     number = 'abc'
+    # elif dataset_name == 'dvmp2':
+    #     dataset = pd.read_csv('2dvmp.csv')['prompt'].tolist()
+    #     number = 'dvmp2'
+    # elif dataset_name == 'dvmp3':
+    #     dataset = pd.read_csv('dvmp3.csv')['prompt'].tolist()
+    #     number = 'dvmp3'
+    # elif dataset_name == 'sentence':
+    #     dataset = PROMPTS
+    #     number = 'syn_dvmp_sample'
+    # else:
+    #     raise ValueError('dataset_name not found')
 
+    number = f'animals_objects'
 
+    dataset = data[number]
 
 
 

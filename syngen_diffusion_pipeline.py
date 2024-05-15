@@ -349,7 +349,7 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
                         i,
                         syngen_step_size,
                         cross_attention_kwargs,
-                        prompt,
+                        prompt+self.more_words if self.more_words is not None else prompt,
                         max_iter_to_alter=25,
                     )
 
@@ -600,15 +600,22 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         if self.i >= 25:
             return 0
         
+        
         if self.sd:
             return 0
+        
+        # if self.ours_obj_ablation:
+        #     loss_s = self._attribution_loss_ours(attention_maps, prompt, attn_map_idx_to_wp)
+        #     loss_t = self._excitation_loss_ours(attention_maps, prompt, attn_map_idx_to_wp)
+        #     loss = loss_s + self.lambda_ours * loss_t
+        #     return loss
  
 
         if self.ours:
             loss_s = self._attribution_loss_ours(attention_maps, prompt, attn_map_idx_to_wp)
             loss_t = self._excitation_loss_ours(attention_maps, prompt, attn_map_idx_to_wp)
-            #print('loss_s,', loss_s, 'loss_t,', loss_t)
-            loss = loss_s + self.lambda_ours * loss_t
+            print('loss_s,', loss_s, 'loss_t,', loss_t)
+            loss = loss_s  
             return loss
         
 
@@ -618,7 +625,7 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
 
         if self.excite:
             assert hasattr(self, 'lambda_excite'), "please specify lambda_excite"
-            loss += self.lambda_excite * self._excitation_loss(attention_maps, prompt, attn_map_idx_to_wp)
+            loss += self.lambda_excite * self._excitation_loss_ours(attention_maps, prompt, attn_map_idx_to_wp)
 
         if self.sum_attn:
             assert hasattr(self, 'lambda_sum_attn'), "please specify lambda_sum_attn"
@@ -776,6 +783,15 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
         return paired_indices
     
     def _extract_attribution_indices_ours(self, prompt):
+       
+        if self.more_words is not None:
+            # if len(prompt.split()) == 6:
+            #     return self.indices[0]
+            # elif len(prompt.split()) == 7:
+            #     return self.indices[1]
+            # else:
+            #     raise ValueError(f"prompt length not supported, {len(prompt.split())}")
+            return self.indices
         # extract standard attribution indices
         pairs = extract_attribution_indices(self.doc)
 
@@ -814,7 +830,7 @@ class SynGenDiffusionPipeline(StableDiffusionPipeline):
                 if noun[0] not in nouns_already_extracted and noun[0] not in attributes_already_extracted:
                     paired_indices += [[None, noun[0]]]
 
-        #print(f"Final pairs collected: {paired_indices}")
+        print(f"Final pairs collected: {paired_indices}")
          
 
 
