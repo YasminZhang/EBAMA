@@ -1,4 +1,11 @@
-.vscode/
-__pycache__/
-.idea/
-output/
+output*/
+
+ours/
+
+projects/
+
+*.csv
+
+add_qual/
+
+

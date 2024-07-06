@@ -1,4 +1,4 @@
-name: syngen
+name: ebama
 channels:
   - pytorch
   - defaults

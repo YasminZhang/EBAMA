@@ -1,15 +1,16 @@
-# Linguistic Binding in Diffusion Models: Enhancing Attribute Correspondence through Attention Map Alignment
+# Object-Conditioned Energy-Based Attention Map Alignment in Text-to-Image Diffusion Models
 
-This repository hosts the code and resources associated with our [paper](https://arxiv.org/abs/2306.08877) on linguistic binding in diffusion models.
+This repository hosts the code and resources associated with our [![Static Badge](https://img.shields.io/badge/ECCV_2024_paper-arxiv_link-blue)
+](https://arxiv.org/abs/2404.07389) paper on multiple-object generation and attribute binding in text-to-image generation models like Stable Diffusion.
 
 ## Abstract
-Text-conditioned image generation models often generate incorrect associations between entities and their visual attributes. This reflects an impaired mapping between linguistic binding of entities and modifiers in the prompt and visual binding of the corresponding elements in the generated image. As one notable example, a query like ``a pink sunflower and a yellow flamingo'' may incorrectly produce an image of a yellow sunflower and a pink flamingo. To remedy this issue, we propose SynGen, an approach which first syntactically analyses the prompt to identify entities and their modifiers, and then uses a novel loss function that encourages the cross-attention maps to agree with the linguistic binding reflected by the syntax. Specifically, we encourage large overlap between attention maps of entities and their modifiers, and small overlap with other entities and modifier words. The loss is optimized during inference, without retraining or fine-tuning the model. Human evaluation on three datasets, including one new and challenging set, demonstrate significant improvements of SynGen compared with current state of the art methods. This work highlights how making use of sentence structure during inference can efficiently and substantially improve the faithfulness of text-to-image generation.
+ Text-to-image diffusion models have shown great success in generating high-quality text-guided images. Yet, these models may still fail to semantically align generated images with the provided text prompts, leading to problems like incorrect attribute binding and/or catastrophic object neglect. Given the pervasive object-oriented structure underlying text prompts, we introduce a novel object-conditioned Energy-Based Attention Map Alignment (EBAMA) method to  address the aforementioned problems. We show that an object-centric attribute binding loss naturally emerges by approximately maximizing the log-likelihood of a $z$-parameterized energy-based model with the help of the negative sampling technique. We further propose an object-centric intensity regularizer to prevent excessive shifts of objects attention towards their attributes. Extensive qualitative and quantitative experiments, including human evaluation, on several challenging benchmarks demonstrate the superior performance of our method over previous strong counterparts. With better aligned attention maps, our approach shows great promise in further enhancing the text-controlled image editing ability of diffusion models.
 
-## Setup
+## Envirioment Setup
 Clone this repository and create a conda environment:
 ```
 conda env create -f environment.yaml
-conda activate syngen
+conda activate ebama
 ```
 
 If you rather use an existing environment, just run:
@@ -50,22 +51,20 @@ python automatic_evaluation.py --captions_and_labels <path/to/csv/file> --images
 
 **images_dir**: This directory should have subdirectories, each named after a specific prompt given to the text-to-image model. Within each subdirectory, you should have the generated images from all the models being evaluated, following the naming convention **'{model_name}_{seed}.jpg'**.
 
-## Live Demo
-
-Check out our [demo](https://huggingface.co/spaces/Royir/SynGen)
+ 
 
 ## Citation
 
 If you use this code or our results in your research, please cite as:
 
 ```bibtex
-@misc{rassin2023linguistic,
-      title={Linguistic Binding in Diffusion Models: Enhancing Attribute Correspondence through Attention Map Alignment}, 
-      author={Royi Rassin and Eran Hirsch and Daniel Glickman and Shauli Ravfogel and Yoav Goldberg and Gal Chechik},
-      year={2023},
-      eprint={2306.08877},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
+@article{zhang2024object,
+  title={Object-conditioned energy-based attention map alignment in text-to-image diffusion models},
+  author={Zhang, Yasi and Yu, Peiyu and Wu, Ying Nian},
+  journal={arXiv preprint arXiv:2404.07389},
+  year={2024}
 }
+```
+
 
 
