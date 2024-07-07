@@ -66,7 +66,7 @@ We would like to give credits to the following repositories, from which we adapt
 ## Citation
 
 If you find this code or our results useful, please cite as [![Static Badge](https://img.shields.io/badge/arxiv_link-red)
-](https://arxiv.org/abs/2404.07389):
+](https://arxiv.org/abs/2404.07389) :
 
 ```bibtex
 @article{zhang2024object,
