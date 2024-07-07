@@ -4,7 +4,7 @@ import math
 import torch
 from diffusion_pipeline import EbamaDiffusionPipeline
 from tqdm import tqdm
-
+import utils.vis_utils as vis_utils
 
 
 

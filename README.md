@@ -36,9 +36,9 @@ In this work, we use the following datasets:
 ## EBAMA (our method)
 To test our method on a specific prompt, run:
 ```
-python ebama.py --prompt "a horned lion and a spotted monkey" --seed 1269
+python inference.py --prompt "a purple crown and a blue suitcase" --seed 12345
 ```
-Note that this will download the stable diffusion model `CompVis/stable-diffusion-v1-4`. If you rather use an existing copy of the model, provide the absolute path using `--model_path`. 
+Note that this will download the stable diffusion model `CompVis/stable-diffusion-v1-4`. If you rather use an existing copy of the model, provide the absolute path using `--model_path`. For example, you can use `runwayml/stable-diffusion-v1-5` for Stable Diffusion v1.5.
 
 
 ## Metrics
@@ -47,10 +47,15 @@ We mainly use the following metrics to evaluate the generated images:
 - Text-Image Min Similarity 
 - Text-Caption Similarity
 
-```
-python automatic_evaluation.py --captions_and_labels <path/to/csv/file> --images_dir <path/to/image/directory>
-```
+Besides, we also provide the code to compute the following metrics as defined in [Attend-and-Excite](https://github.com/yuval-alaluf/Attend-and-Excite):
+- Text-Image Max Similarity
+- Text-Image Avg Similarity
 
+We provide the evaluation code in the `metrics` folder. To evaluate the generated images and captions, for example, run:
+```
+python metrics/compute_clip_similarity.py  
+```
+You can define the paths to the generated images and captions and save path in `metrics/path_name` 
 
 
  
