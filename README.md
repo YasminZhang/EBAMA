@@ -58,7 +58,10 @@ python metrics/compute_clip_similarity.py
 You can define the paths to the generated images and captions and save path in `metrics/path_name` 
 
 
- 
+## Credits 
+We would like to give credits to the following repositories, from which we adapted certain code components for our research:
+- [Attend-and-Excite](https://github.com/yuval-alaluf/Attend-and-Excite)
+- [SynGen](https://github.com/tdspora/syngen)
 
 ## Citation
 
