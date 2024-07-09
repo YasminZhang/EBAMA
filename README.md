@@ -29,7 +29,7 @@ to install the transformer-based spaCy NLP parser.
 ## Datasets
 In this work, we use the following datasets:
 - AnE dataset from [Attend-and-Excite](https://github.com/yuval-alaluf/Attend-and-Excite). We provide the AnE dataset  `ane_data.py`  in the `data` folder.
-- DVMP dataset from [SynGen](https://github.com/tdspora/syngen). Please follow the repo to randomly generate the DVMP dataset.
+- DVMP dataset from [SynGen](https://github.com/RoyiRa/Linguistic-Binding-in-Diffusion-Models). Please follow the repo to randomly generate the DVMP dataset.
 - ABC-6K dataset from [StrDiffusion](https://github.com/weixi-feng/Structured-Diffusion-Guidance). We provide the full ABC-6K dataset `ABC-6K.txt` in the `data` folder and a subset of the dataset in `data_abc.py`.
 
 
@@ -61,7 +61,7 @@ You can define the paths to the generated images and captions and save path in `
 ## Credits 
 We would like to give credits to the following repositories, from which we adapted certain code components for our research:
 - [Attend-and-Excite](https://github.com/yuval-alaluf/Attend-and-Excite)
-- [SynGen](https://github.com/tdspora/syngen)
+- [SynGen](https://github.com/RoyiRa/Linguistic-Binding-in-Diffusion-Models)
 
 ## Citation
 
