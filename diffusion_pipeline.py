@@ -582,7 +582,7 @@ class EbamaPipeline(StableDiffusionPipeline):
                     subtree_indices,
                     attn_map_idx_to_wp,
                     dist=self.dist,
-                    ours=self.ours,
+                    ours=True,
                 )
             )
 
