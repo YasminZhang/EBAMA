@@ -591,6 +591,43 @@ class EbamaPipeline(StableDiffusionPipeline):
 
         return positive_loss, negative_loss
 
+    def _align_indices(self, prompt, spacy_pairs):
+        wordpieces2indices = get_indices(self.tokenizer, prompt)
+        paired_indices = []
+        collected_spacy_indices = (
+            set()
+        )  # helps track recurring nouns across different relations (i.e., cases where there is more than one instance of the same word)
+        for pair in spacy_pairs:
+            curr_collected_wp_indices = (
+                []
+            )  # helps track which nouns and amods were added to the current pair (this is useful in sentences with repeating amod on the same relation (e.g., "a red red red bear"))
+            for member in pair:
+                for idx, wp in wordpieces2indices.items():
+                    if wp in [start_token, end_token]:
+                        continue
+                    wp = wp.replace("</w>", "")
+                    if member.text == wp:
+                        if idx not in curr_collected_wp_indices and idx not in collected_spacy_indices:
+                            curr_collected_wp_indices.append(idx)
+                            break
+                    # take care of wordpieces that are split up
+                    elif member.text.startswith(wp) and wp != member.text:  # can maybe be while loop
+                        wp_indices = align_wordpieces_indices(
+                            wordpieces2indices, idx, member.text
+                        )
+                        # check if all wp_indices are not already in collected_spacy_indices
+                        if wp_indices and (wp_indices not in curr_collected_wp_indices) and all([wp_idx not in collected_spacy_indices for wp_idx in wp_indices]):
+                            curr_collected_wp_indices.append(wp_indices)
+                            break
+            for collected_idx in curr_collected_wp_indices:
+                if isinstance(collected_idx, list):
+                    for idx in collected_idx:
+                        collected_spacy_indices.add(idx)
+                else:
+                    collected_spacy_indices.add(collected_idx)
+            paired_indices.append(curr_collected_wp_indices)
+        return paired_indices
+
     def _align_indices_ours(self, prompt, spacy_pairs):
         wordpieces2indices = get_indices(self.tokenizer, prompt)
         paired_indices = []
