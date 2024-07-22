@@ -552,8 +552,8 @@ class EbamaPipeline(StableDiffusionPipeline):
                 attn_map_idx_to_wp,
             )
             loss += positive_loss
-            if not self.without_repulsion:
-                loss += negative_loss
+            
+            loss += negative_loss
 
         return loss
 
