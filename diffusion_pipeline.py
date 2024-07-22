@@ -218,10 +218,7 @@ class EbamaPipeline(StableDiffusionPipeline):
         if parsed_prompt:
             self.doc = parsed_prompt
         else:
-            if self.more_words is not None:
-                self.doc = self.parser(prompt + self.more_words)
-            else:
-                self.doc = self.parser(prompt)
+            self.doc = self.parser(prompt)
         # 0. Default height and width to unet
         height = height or self.unet.config.sample_size * self.vae_scale_factor
         width = width or self.unet.config.sample_size * self.vae_scale_factor
