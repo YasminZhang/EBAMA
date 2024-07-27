@@ -306,6 +306,8 @@ class EbamaDiffusionPipeline(StableDiffusionPipeline):
             for i, t in enumerate(timesteps):
                 # NEW
 
+                self.i = i
+
                 latents = self._step(
                     latents,
                     text_embeddings,
@@ -314,7 +316,7 @@ class EbamaDiffusionPipeline(StableDiffusionPipeline):
                     step_size,
                     cross_attention_kwargs,
                     prompt,
-                    max_iter_to_alter=25,
+                     
                 )
 
                 # expand the latents if we are doing classifier free guidance
@@ -392,7 +394,7 @@ class EbamaDiffusionPipeline(StableDiffusionPipeline):
         step_size,
         cross_attention_kwargs,
         prompt,
-        max_iter_to_alter=25,
+         
     ):
         with torch.enable_grad():
 
@@ -526,6 +528,8 @@ class EbamaDiffusionPipeline(StableDiffusionPipeline):
         attn_map_idx_to_wp = get_attention_map_index_to_wordpiece(
             self.tokenizer, prompt
         )
+        if self.i > 25:
+            return 0
 
         loss_s = self._attribution_loss_ours(attention_maps, prompt, attn_map_idx_to_wp)
         loss_t = self._excitation_loss_ours(attention_maps, prompt, attn_map_idx_to_wp)
