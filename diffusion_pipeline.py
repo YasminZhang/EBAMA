@@ -48,7 +48,7 @@ from PIL import Image
 logger = logging.get_logger(__name__)
 
 
-class EbamaPipeline(StableDiffusionPipeline):
+class EbamaDiffusionPipeline(StableDiffusionPipeline):
     def __init__(
         self,
         vae: AutoencoderKL,
