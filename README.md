@@ -1,4 +1,4 @@
-# [ECCV 2024] Object-Conditioned Energy-Based Attention Map Alignment in Text-to-Image Diffusion Models
+# 🔥 [ECCV 2024] Object-Conditioned Energy-Based Attention Map Alignment in Text-to-Image Diffusion Models
 
 This repository hosts the code and resources associated with our [![Static Badge](https://img.shields.io/badge/ECCV_2024_paper-arxiv_link-blue)
 ](https://arxiv.org/abs/2404.07389)  on multiple-object generation and attribute binding in text-to-image generation models like Stable Diffusion.
