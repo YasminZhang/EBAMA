@@ -1,7 +1,9 @@
 # 🔥 [ECCV 2024] Object-Conditioned Energy-Based Attention Map Alignment in Text-to-Image Diffusion Models
 
-This repository hosts the code and resources associated with our [![Static Badge](https://img.shields.io/badge/ECCV_2024_paper-arxiv_link-blue)
-](https://arxiv.org/abs/2404.07389)  on multiple-object generation and attribute binding in text-to-image generation models like Stable Diffusion.
+[![Static Badge](https://img.shields.io/badge/ECCV_2024_paper-arxiv_link-blue)
+](https://arxiv.org/abs/2404.07389)
+
+This repository hosts the code and resources associated with our paper  on multiple-object generation and attribute binding in text-to-image generation models like Stable Diffusion.
 
 ## Abstract
  Text-to-image diffusion models have shown great success in generating high-quality text-guided images. Yet, these models may still fail to semantically align generated images with the provided text prompts, leading to problems like incorrect attribute binding and/or catastrophic object neglect. Given the pervasive object-oriented structure underlying text prompts, we introduce a novel object-conditioned Energy-Based Attention Map Alignment (EBAMA) method to  address the aforementioned problems. We show that an object-centric attribute binding loss naturally emerges by approximately maximizing the log-likelihood of a $z$-parameterized energy-based model with the help of the negative sampling technique. We further propose an object-centric intensity regularizer to prevent excessive shifts of objects attention towards their attributes. Extensive qualitative and quantitative experiments, including human evaluation, on several challenging benchmarks demonstrate the superior performance of our method over previous strong counterparts. With better aligned attention maps, our approach shows great promise in further enhancing the text-controlled image editing ability of diffusion models.
