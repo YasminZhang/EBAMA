@@ -66,19 +66,26 @@ We would like to give credits to the following repositories, from which we adapt
 - [SynGen](https://github.com/RoyiRa/Linguistic-Binding-in-Diffusion-Models)
 
 ## Citation
+[![Static Badge](https://img.shields.io/badge/arxiv_link-red)
+](https://arxiv.org/abs/2404.07389)
 
-If you find this code or our results useful, please cite as [![Static Badge](https://img.shields.io/badge/arxiv_link-red)
-](https://arxiv.org/abs/2404.07389) :
+If you find this code or our results useful, please cite as:
 
 ```bibtex
-@article{zhang2024object,
-  title={Object-conditioned energy-based attention map alignment in text-to-image diffusion models},
-  author={Zhang, Yasi and Yu, Peiyu and Wu, Ying Nian},
-  journal={arXiv preprint arXiv:2404.07389},
-  year={2024}
-}
+
+@inproceedings{zhang2024object,
+	abstract = {Text-to-image diffusion models have shown great success in generating high-quality text-guided images. Yet, these models may still fail to semantically align generated images with the provided text prompts, leading to problems like incorrect attribute binding and/or catastrophic object neglect. Given the pervasive object-oriented structure underlying text prompts, we introduce a novel object-conditioned Energy-Based Attention Map Alignment (EBAMA) method to address the aforementioned problems. We show that an object-centric attribute binding loss naturally emerges by approximately maximizing the log-likelihood of a z-parameterized energy-based model with the help of the negative sampling technique. We further propose an object-centric intensity regularizer to prevent excessive shifts of objects attention towards their attributes. Extensive qualitative and quantitative experiments, including human evaluation, on several challenging benchmarks demonstrate the superior performance of our method over previous strong counterparts. With better aligned attention maps, our approach shows great promise in further enhancing the text-controlled image editing ability of diffusion models. The code is available at https://github.com/YasminZhang/EBAMA.},
+	address = {Cham},
+	author = {Zhang, Yasi and Yu, Peiyu and Wu, Ying Nian},
+	booktitle = {Computer Vision -- ECCV 2024},
+	editor = {Leonardis, Ale{\v{s}} and Ricci, Elisa and Roth, Stefan and Russakovsky, Olga and Sattler, Torsten and Varol, G{\"u}l},
+	isbn = {978-3-031-72946-1},
+	pages = {55--71},
+	publisher = {Springer Nature Switzerland},
+	title = {Object-Conditioned Energy-Based Attention Map Alignment in Text-to-Image Diffusion Models},
+	year = {2025}}
 ```
-The citation will be modified after ECCV finishes its publication. 
+ 
 
 
 
