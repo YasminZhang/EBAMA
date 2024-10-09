@@ -85,6 +85,10 @@ If you find this code or our results useful, please cite as:
 	title = {Object-Conditioned Energy-Based Attention Map Alignment in Text-to-Image Diffusion Models},
 	year = {2025}}
 ```
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=YasminZhang/EBAMA&type=Date)](https://star-history.com/#YasminZhang/EBAMA&Date)
  
 
 
